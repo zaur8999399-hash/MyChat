@@ -137,17 +137,40 @@ app.MapPost("/api/logout", async (HttpContext context) =>
 
 app.MapGet("/api/me", async (ClaimsPrincipal principal, AppDb db) =>
 {
-    var idValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    var login = principal.FindFirstValue("login");
+    if (string.IsNullOrEmpty(login)) return Results.Unauthorized();
 
-    if (!int.TryParse(idValue, out int id))
-        return Results.Unauthorized();
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Login == login);
+    if (user == null) return Results.Unauthorized();
 
-    var user = await db.Users.FindAsync(id);
+    return Results.Ok(new {
+        id = user.Id,
+        login = user.Login,
+        name = user.Name,
+        avatarUrl = user.AvatarUrl,
+        status = user.Status ?? ""
+    });
+}).RequireAuthorization();
 
-    if (user == null)
-        return Results.Unauthorized();
+app.MapPost("/api/status", async (ClaimsPrincipal principal, AppDb db, HttpContext ctx) =>
+{
+    var login = principal.FindFirstValue("login");
+    if (string.IsNullOrEmpty(login)) return Results.Unauthorized();
 
-    return Results.Ok(new { id = user.Id, name = user.Name, avatarUrl = user.AvatarUrl });
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Login == login);
+    if (user == null) return Results.Unauthorized();
+
+    using var reader = new StreamReader(ctx.Request.Body);
+    var body = await reader.ReadToEndAsync();
+    var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+
+    if (data != null && data.ContainsKey("status"))
+    {
+        user.Status = data["status"] ?? "";
+        await db.SaveChangesAsync();
+    }
+
+    return Results.Ok(new { ok = true, status = user.Status });
 }).RequireAuthorization();
 
 app.MapPost("/api/avatar", async (HttpContext context, AppDb db) =>

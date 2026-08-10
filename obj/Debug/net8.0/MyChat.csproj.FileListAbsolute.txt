@@ -61,3 +61,4 @@ C:\Users\Неисправимый\MyChat\obj\Debug\net8.0\MyChat.pdb
 C:\Users\Неисправимый\MyChat\obj\Debug\net8.0\MyChat.genruntimeconfig.cache
 C:\Users\Неисправимый\MyChat\obj\Debug\net8.0\ref\MyChat.dll
 C:\Users\Неисправимый\MyChat\bin\Debug\net8.0\MyChat.staticwebassets.runtime.json
+C:\Users\Неисправимый\MyChat\obj\Debug\net8.0\MyChat.sourcelink.json

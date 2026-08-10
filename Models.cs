@@ -9,6 +9,8 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
 
     public string? AvatarUrl { get; set; }
+    
+    public string Status { get; set; } = "";
 }
 
 public class Room

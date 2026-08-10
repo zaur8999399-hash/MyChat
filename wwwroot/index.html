@@ -597,6 +597,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
     padding: 40px 20px;
 }
 
@@ -704,7 +705,153 @@
     color: #333;
 }
 
+/* ===== СТАТУС ПРОФИЛЯ ===== */
 
+.profile-status {
+    color: #8a8a8e;
+    font-size: 14px;
+}
+.profile-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+    min-height: 24px;
+}
+.profile-status.hidden {
+    display: none;
+}
+
+.profile-edit-status-btn {
+    margin-top: 15px;
+    padding: 8px 16px;
+    background: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.profile-edit-status-btn:hover {
+    background: #0056b3;
+}
+
+/* ===== МОДАЛЬНОЕ ОКНО СТАТУСА ===== */
+
+.status-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.status-modal-overlay.hidden {
+    display: none;
+}
+
+.status-modal {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.status-modal h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+    color: #333;
+}
+
+.status-modal input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+}
+
+.status-modal input:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.status-modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.status-modal-buttons button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: opacity 0.2s;
+}
+
+.status-modal-buttons button:hover {
+    opacity: 0.85;
+}
+
+.status-modal-save {
+    background: #007AFF;
+    color: white;
+}
+
+.status-modal-cancel {
+    background: #e0e0e0;
+    color: #333;
+}
+.status-pencil-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #8a8a8e;
+    transition: background 0.2s, color 0.2s;
+}
+
+.status-pencil-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #555555;
+}
+
+.profile-add-status-btn {
+    margin-top: 16px;
+    padding: 8px 20px;
+    background: none;
+    border: 1px solid #d1d1d6;
+    border-radius: 20px;
+    color: #8a8a8e;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.profile-add-status-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: #555555;
+}
     </style>
 </head>
 <body>
@@ -774,6 +921,7 @@
         let currentUserId = null;
         let currentName = '';
         let currentAvatar = null;
+        let currentStatus = '';
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
@@ -868,6 +1016,60 @@ function fillProfile() {
 
     document.getElementById('profileName').textContent = currentName || '';
     document.getElementById('profileLogin').textContent = '@' + (currentUserLogin || '');
+
+const statusEl = document.getElementById('profileStatus');
+    if (statusEl) {
+        statusEl.textContent = currentStatus || '';
+        if (currentStatus) {
+            statusEl.classList.remove('hidden');
+        } else {
+            statusEl.classList.add('hidden');
+        }
+    }
+}
+
+async function updateStatus() {
+    const input = document.getElementById('statusInput');
+    if (!input) return;
+
+    const status = input.value.trim();
+
+    try {
+        const res = await fetch('/api/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status }),
+            credentials: 'same-origin'
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            currentStatus = data.status;
+            fillProfile();
+            closeStatusModal();
+        } else {
+            alert(data.error || 'Не удалось сохранить статус');
+        }
+    } catch {
+        alert('Ошибка при сохранении статуса');
+    }
+}
+
+function openStatusModal() {
+    const modal = document.getElementById('statusModal');
+    const input = document.getElementById('statusInput');
+    if (modal && input) {
+        input.value = currentStatus || '';
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeStatusModal() {
+    const modal = document.getElementById('statusModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
 }
 
 function confirmLogout() {
@@ -919,6 +1121,8 @@ function closeLogoutModal() {
             currentUserId = data.id;
             currentName = data.name;
             currentAvatar = data.avatarUrl;
+            currentStatus = data.status || '';
+
             currentUserLogin = localStorage.getItem('myLogin') || '';
 
             console.log('AUTH DATA:', data);
@@ -994,6 +1198,50 @@ function closeLogoutModal() {
             renderRooms();
         }
         
+        async function updateStatus() {
+    const input = document.getElementById('statusInput');
+    if (!input) return;
+
+    const status = input.value.trim();
+
+    try {
+        const res = await fetch('/api/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status }),
+            credentials: 'same-origin'
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            currentStatus = data.status;
+            fillProfile();
+            closeStatusModal();
+        } else {
+            alert(data.error || 'Не удалось сохранить статус');
+        }
+    } catch {
+        alert('Ошибка при сохранении статуса');
+    }
+}
+
+function openStatusModal() {
+    const modal = document.getElementById('statusModal');
+    const input = document.getElementById('statusInput');
+    if (modal && input) {
+        input.value = currentStatus || '';
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeStatusModal() {
+    const modal = document.getElementById('statusModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+         
         async function fillPreviews() {
     for (const room of rooms) {
         try {
@@ -1296,12 +1544,24 @@ function closeSearchModal() {
     </div>
 
     <div id="profileScreen" class="profile-screen hidden">
-        <div class="profile-avatar" id="profileAvatar"></div>
-        <div class="profile-name" id="profileName"></div>
-        <div class="profile-login" id="profileLogin"></div>
+    <div class="profile-avatar" id="profileAvatar"></div>
+    <div class="profile-name" id="profileName"></div>
+    <div class="profile-login" id="profileLogin"></div>
+
+    <!-- Статус + серый карандашик справа -->
+    <div class="profile-status-row">
+        <div id="profileStatus" class="profile-status hidden"></div>
+        <button onclick="openStatusModal()" id="statusEditBtn" class="status-pencil-btn hidden" title="Изменить статус">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+        </button>
     </div>
 
-    <div id="genericSection" class="section-placeholder">Раздел</div>
+    <!-- Кнопка появляется ТОЛЬКО если статуса ещё нет -->
+    <button onclick="openStatusModal()" id="addStatusBtn" class="profile-add-status-btn hidden">
+        Добавить статус
+    </button>
 </div>
 
 <div id="logoutModal" class="logout-overlay hidden">
@@ -1326,6 +1586,16 @@ function closeSearchModal() {
     </div>
     <div id="chatsList" class="chats-list"></div>
 </div>
-
+<!-- Модальное окно статуса -->
+<div id="statusModal" class="status-modal-overlay hidden">
+    <div class="status-modal">
+        <h3>Статус «О себе»</h3>
+        <input type="text" id="statusInput" placeholder="Привет, я использую MyChat!" />
+        <div class="status-modal-buttons">
+            <button onclick="updateStatus()" class="status-modal-save">Сохранить</button>
+            <button onclick="closeStatusModal()" class="status-modal-cancel">Отмена</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
