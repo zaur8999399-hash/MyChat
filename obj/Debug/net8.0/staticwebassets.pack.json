@@ -1,0 +1,61 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.jpg",
+      "PackagePath": "staticwebassets\\avatars\\1.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\2.jpeg",
+      "PackagePath": "staticwebassets\\avatars\\2.jpeg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\3.jpg",
+      "PackagePath": "staticwebassets\\avatars\\3.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\4.jpeg",
+      "PackagePath": "staticwebassets\\avatars\\4.jpeg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\5.jpg",
+      "PackagePath": "staticwebassets\\avatars\\5.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",
+      "PackagePath": "staticwebassets\\icon.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\manifest.json",
+      "PackagePath": "staticwebassets\\manifest.json"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\signalr.min.js",
+      "PackagePath": "staticwebassets\\signalr.min.js"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\sw.js",
+      "PackagePath": "staticwebassets\\sw.js"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.MyChat.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.MyChat.props",
+      "PackagePath": "build\\MyChat.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.MyChat.props",
+      "PackagePath": "buildMultiTargeting\\MyChat.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.MyChat.props",
+      "PackagePath": "buildTransitive\\MyChat.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
