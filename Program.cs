@@ -101,7 +101,8 @@ CREATE TABLE IF NOT EXISTS PollVotes (
     OptionId INTEGER NOT NULL,
     UserId INTEGER NOT NULL
 );");
-
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ForwardedFromId INTEGER;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ForwardedFromName TEXT;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Posts ADD COLUMN ImageUrl Text;"); } catch{}
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN IsRead INTEGER NOT NULL DEFAULT 0;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ReplyToId INTEGER;"); } catch { }
@@ -449,7 +450,7 @@ app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrinci
         m.Id, m.RoomId, m.UserId,
         Name = m.User!.Name,
         AvatarUrl = m.User.AvatarUrl,
-        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,
+        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,m.ForwardedFromId, m.ForwardedFromName,
         reactions = reactions.Where(r => r.MessageId == m.Id)
             .GroupBy(r => r.Emoji)
             .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId) })
@@ -1338,6 +1339,60 @@ app.MapPut("/api/messages/{id:int}", async (int id, ClaimsPrincipal principal, A
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// Пересылка сообщения в другой чат
+app.MapPost("/api/messages/{id:int}/forward", async (int id, ClaimsPrincipal principal, AppDb db, IHubContext<ChatHub> hub, ForwardMessageDto dto) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var original = await db.Messages.FindAsync(id);
+    if (original == null) return Results.NotFound(new { error = "Сообщение не найдено" });
+
+    var targetRoom = await db.Rooms.FindAsync(dto.RoomId);
+    if (targetRoom == null) return Results.NotFound(new { error = "Чат не найден" });
+
+    // Проверяем что пользователь в целевом чате
+    var memberIds = ParseMembers(targetRoom.Members);
+    if (!string.IsNullOrEmpty(targetRoom.Members) && !memberIds.Contains(userId))
+        return Results.BadRequest(new { error = "Вы не участник этого чата" });
+
+    var author = await db.Users.FindAsync(original.UserId);
+    
+    var forwarded = new Message
+    {
+        RoomId = dto.RoomId,
+        UserId = userId,
+        Text = original.Text,
+        ForwardedFromId = original.UserId,
+        ForwardedFromName = author?.Name ?? "Неизвестный"
+    };
+
+    db.Messages.Add(forwarded);
+    await db.SaveChangesAsync();
+
+    var sender = await db.Users.FindAsync(userId);
+    await hub.Clients.Group($"room-{dto.RoomId}").SendAsync("receive", new
+    {
+        forwarded.Id,
+        roomId = dto.RoomId,
+        userId,
+        name = sender?.Name ?? "Неизвестный",
+        avatarUrl = sender?.AvatarUrl,
+        text = forwarded.Text,
+        sentAt = forwarded.SentAt,
+        isRead = false,
+        replyToId = (int?)null,
+        replyAuthorName = (string?)null,
+        replyText = (string?)null,
+        forwardedFromName = forwarded.ForwardedFromName,
+        reactions = new object[] { }
+    });
+
+    return Results.Ok(new { ok = true, id = forwarded.Id });
+}).RequireAuthorization();
+
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
+
+
 
 app.Run("http://0.0.0.0:5000");

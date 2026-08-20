@@ -2127,6 +2127,14 @@ async function markRoomRead(roomId) {
         bubble.appendChild(lbl);
     }
 
+        // Пересланное сообщение
+    if (m.forwardedFromName) {
+        const fwd = document.createElement('div');
+        fwd.className = 'msg-forwarded';
+        fwd.textContent = '↪️ Переслано от ' + m.forwardedFromName;
+        bubble.appendChild(fwd);
+    }
+
     // Галочки у своих сообщений
     if (m.userId === currentUserId) {
         const ticks = document.createElement('span');
@@ -2200,7 +2208,7 @@ function openMessageMenu(e, m) {
     }
     menu.innerHTML = '';
 
-        // Единое удаление — одно меню для всех случаев
+    // Удалить у себя — всегда
     addChatMenuItem(menu, 'Удалить', () => {
         closeChatMenu();
         deleteMessage(m.id);
@@ -2211,13 +2219,21 @@ function openMessageMenu(e, m) {
         closeChatMenu();
         startReply(m);
     });
-        // Редактирование — только своё (в стиле Telegram)
+
+    // Редактирование — только своё
     if (m.userId === currentUserId) {
         addChatMenuItem(menu, '✏️ Редактировать', () => {
             closeChatMenu();
             startEditInInput(m);
         });
     }
+
+    // Пересылка — для ВСЕХ сообщений (без условия!)
+    addChatMenuItem(menu, '↪️ Переслать', () => {
+        closeChatMenu();
+        openForwardModal(m.id);
+    });
+
     // Закреп — только админ/модер в группе
     if (currentRoomIsGroup && currentGroup && (currentGroup.myRole === 'admin' || currentGroup.myRole === 'moder')) {
         addChatMenuItem(menu, '📌 Закрепить', () => {
@@ -2225,23 +2241,6 @@ function openMessageMenu(e, m) {
             pinMessage(m.id);
         });
     }
-    
-        // Быстрые реакции
-    const reactTitle = document.createElement('div');
-    reactTitle.className = 'menu-react-title';
-    reactTitle.textContent = 'Реакция:';
-    menu.appendChild(reactTitle);
-
-    const reactRow = document.createElement('div');
-    reactRow.className = 'menu-react-row';
-    ['❤️', '🔥', '😂', '👍', '😮', '😢'].forEach(em => {
-        const b = document.createElement('button');
-        b.className = 'menu-react-btn';
-        b.textContent = em;
-        b.onclick = () => { closeChatMenu(); reactToMessage(m.id, em); };
-        reactRow.appendChild(b);
-    });
-    menu.appendChild(reactRow);
 
     const rect = e.currentTarget.getBoundingClientRect();
     menu.classList.remove('hidden');
@@ -2774,5 +2773,70 @@ function cancelEdit() {
     if (sendBtn) {
         sendBtn.classList.remove('editing');
         sendBtn.textContent = '➤';
+    }
+}
+
+// ===== ПЕРЕСЫЛКА СООБЩЕНИЙ =====
+let forwardingMessageId = null;
+
+async function openForwardModal(msgId) {
+    forwardingMessageId = msgId;
+    const list = document.getElementById('forwardRoomsList');
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:#8a8a8e;">Загрузка...</div>';
+    document.getElementById('forwardModal').classList.remove('hidden');
+
+    try {
+        const rooms = await api('/api/rooms');
+        list.innerHTML = '';
+        
+        if (rooms.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#8a8a8e;">Нет доступных чатов</div>';
+            return;
+        }
+
+        rooms.forEach(room => {
+            const row = document.createElement('div');
+            row.className = 'forward-room-row';
+            row.onclick = () => forwardMessage(room.id);
+
+            const av = document.createElement('div');
+            av.className = 'forward-room-avatar';
+            if (room.avatarUrl) {
+                const img = document.createElement('img');
+                img.src = room.avatarUrl;
+                av.appendChild(img);
+            } else {
+                av.textContent = room.name === 'Общий' ? '🌐' : room.name.charAt(0).toUpperCase();
+            }
+
+            const info = document.createElement('div');
+            info.className = 'forward-room-info';
+            const name = document.createElement('div');
+            name.className = 'forward-room-name';
+            name.textContent = room.name;
+            info.appendChild(name);
+
+            row.appendChild(av);
+            row.appendChild(info);
+            list.appendChild(row);
+        });
+    } catch (e) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#e74c3c;">Ошибка загрузки</div>';
+    }
+}
+
+function closeForwardModal() {
+    document.getElementById('forwardModal').classList.add('hidden');
+    forwardingMessageId = null;
+}
+
+async function forwardMessage(targetRoomId) {
+    if (!forwardingMessageId) return;
+    try {
+        await api(`/api/messages/${forwardingMessageId}/forward`, 'POST', { roomId: targetRoomId });
+        closeForwardModal();
+        alert('Сообщение переслано!');
+    } catch (e) {
+        alert(e.message || 'Не удалось переслать');
     }
 }

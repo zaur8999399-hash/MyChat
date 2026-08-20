@@ -29,6 +29,8 @@ public class Room
 
 public class Message
 {
+    public int? ForwardedFromId { get; set; }
+    public string? ForwardedFromName { get; set; }
     public bool IsRead { get; set; } = false;
     public int Id { get; set; }
 
@@ -84,7 +86,7 @@ public class Friendship
     public string Status { get; set; } = "pending";  // pending / accepted
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
-
+public record ForwardMessageDto(int RoomId);
 public record FriendRequestDto(string Login);
 public record CreatePostDto(string Text, string Emoji1, string Emoji2, string? ImageUrl);
 public record ReactDto(string Emoji);

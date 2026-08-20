@@ -5,6 +5,10 @@
       "PackagePath": "staticwebassets\\app.js"
     },
     {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.png",
+      "PackagePath": "staticwebassets\\avatars\\1.png"
+    },
+    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",
       "PackagePath": "staticwebassets\\icon.png"
     },
@@ -15,6 +19,10 @@
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\manifest.json",
       "PackagePath": "staticwebassets\\manifest.json"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639228584773755960.png",
+      "PackagePath": "staticwebassets\\posts\\post_639228584773755960.png"
     },
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\signalr.min.js",

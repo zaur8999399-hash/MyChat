@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "0uBqJgFCp4dNIWRNOp/614ln10FAsHIAa8XVWh5MMEU=",
+  "Hash": "zGGxyMTc6T/sk68OHLLK6S/rUOOJlrFpRfC8tzVD00c=",
   "Source": "MyChat",
   "BasePath": "_content/MyChat",
   "Mode": "Default",
@@ -34,6 +34,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\app.js"
+    },
+    {
+      "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.png",
+      "SourceId": "MyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\",
+      "BasePath": "_content/MyChat",
+      "RelativePath": "avatars/1.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\avatars\\1.png"
     },
     {
       "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",
@@ -91,6 +110,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\manifest.json"
+    },
+    {
+      "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639228584773755960.png",
+      "SourceId": "MyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\",
+      "BasePath": "_content/MyChat",
+      "RelativePath": "posts/post_639228584773755960.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\posts\\post_639228584773755960.png"
     },
     {
       "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\signalr.min.js",
