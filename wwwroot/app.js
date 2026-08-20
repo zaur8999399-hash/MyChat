@@ -10,6 +10,7 @@
         let currentRoomIsGroup = false;
         let replyTo = null; // { id, name, text }
         let unreadCounts = {};
+        let editingMessage = null; // { id, text }
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
@@ -1816,6 +1817,21 @@ function closeLogoutModal() {
                     }
                     renderReactionChips(cont, msgId, reactions);
                 });
+
+                                connection.on('messageedited', (msgId, newText, editedAt) => {
+                    const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+                    if (!row) return;
+                    const bubble = row.querySelector('.bubble');
+                    const textEl = bubble.querySelector('.msg-text');
+                    if (textEl) textEl.textContent = newText;
+                    if (!bubble.querySelector('.msg-edited-label')) {
+                        const lbl = document.createElement('span');
+                        lbl.className = 'msg-edited-label';
+                        lbl.textContent = 'изменено';
+                        bubble.appendChild(lbl);
+                    }
+                });
+
             // После восстановления соединения — возвращаемся в открытый чат
                connection.onreconnected(async () => {
                    if (currentRoomId) {
@@ -2104,6 +2120,13 @@ async function markRoomRead(roomId) {
     bubble.appendChild(nameEl);
     bubble.appendChild(textEl);
 
+    if (m.EditedAt) {
+        const lbl = document.createElement('span');
+        lbl.className = 'msg-edited-label';
+        lbl.textContent = 'изменено';
+        bubble.appendChild(lbl);
+    }
+
     // Галочки у своих сообщений
     if (m.userId === currentUserId) {
         const ticks = document.createElement('span');
@@ -2143,16 +2166,21 @@ async function markRoomRead(roomId) {
     const text = input.value;
 
     if (!text.trim()) return;
+    if (!connection || !currentRoomId) return;
 
-    if (!connection) {
-        alert('Нет соединения с сервером. Обнови страницу.');
+    // Если в режиме редактирования — отправляем PUT
+    if (editingMessage) {
+        try {
+            await api(`/api/messages/${editingMessage.id}`, 'PUT', { text: text.trim() });
+            input.value = '';
+            cancelEdit();
+        } catch (e) {
+            alert(e.message || 'Не удалось сохранить');
+        }
         return;
     }
-    if (!currentRoomId) {
-        alert('Чат не выбран.');
-        return;
-    }
 
+    // Обычная отправка
     try {
         const replyId = replyTo ? replyTo.id : null;
         await connection.invoke('SendMessage', currentRoomId, text, replyId);
@@ -2183,7 +2211,13 @@ function openMessageMenu(e, m) {
         closeChatMenu();
         startReply(m);
     });
-
+        // Редактирование — только своё (в стиле Telegram)
+    if (m.userId === currentUserId) {
+        addChatMenuItem(menu, '✏️ Редактировать', () => {
+            closeChatMenu();
+            startEditInInput(m);
+        });
+    }
     // Закреп — только админ/модер в группе
     if (currentRoomIsGroup && currentGroup && (currentGroup.myRole === 'admin' || currentGroup.myRole === 'moder')) {
         addChatMenuItem(menu, '📌 Закрепить', () => {
@@ -2710,4 +2744,35 @@ function renderReactionChips(container, msgId, reactions) {
         chip.onclick = () => reactToMessage(msgId, r.emoji);
         container.appendChild(chip);
     });
+}
+
+// ===== РЕДАКТИРОВАНИЕ СООБЩЕНИЙ (в стиле Telegram) =====
+function startEditInInput(m) {
+    editingMessage = { id: m.id, text: m.text };
+    document.getElementById('editBarText').textContent = m.text;
+    document.getElementById('editBar').classList.remove('hidden');
+    
+    const input = document.getElementById('messageText');
+    input.value = m.text;
+    input.focus();
+    input.setSelectionRange(0, m.text.length);
+    
+    // Меняем кнопку отправки на ✓
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) {
+        sendBtn.classList.add('editing');
+        sendBtn.textContent = '✓';
+    }
+}
+
+function cancelEdit() {
+    editingMessage = null;
+    document.getElementById('editBar').classList.add('hidden');
+    document.getElementById('messageText').value = '';
+    
+    const sendBtn = document.querySelector('.send-btn');
+    if (sendBtn) {
+        sendBtn.classList.remove('editing');
+        sendBtn.textContent = '➤';
+    }
 }

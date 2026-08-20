@@ -42,6 +42,7 @@ public class Message
 
     public string Text { get; set; } = string.Empty;
     public int? ReplyToId { get; set; }
+    public DateTime? EditedAt { get; set; }
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -89,15 +90,13 @@ public record CreatePostDto(string Text, string Emoji1, string Emoji2, string? I
 public record ReactDto(string Emoji);
 public record CreateCommentDto(string Text);
 public record RegisterDto(string Login, string Name, string Password);
-
 public record LoginDto(string Login, string Password);
-
 public record CreateRoomDto(string Name);
-
 public record CreateGroupDto(string Name, string Description, bool IsPrivate);
 public record InviteDto(string Login);
 public record SetRoleDto(int UserId, string Role);
 public record PinDto(int MessageId);
+public record EditedMessageDto(string Text);
 public class Poll
 {
     public int Id { get; set; }

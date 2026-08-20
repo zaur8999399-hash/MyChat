@@ -2246,3 +2246,35 @@
     padding: 4px; border-radius: 8px;
 }
 .menu-react-btn:hover { background: #f0f2f5; }
+
+/* =====/* ===== РЕДАКТИРОВАНИЕ (в стиле Telegram) ===== */
+.msg-edited-label {
+    font-size: 10px; color: #8a8a8e;
+    margin-left: 4px; font-style: italic;
+}
+.edit-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #fff3cd;
+    border-top: 2px solid #ffc107;
+}
+.edit-bar-content {
+    flex: 1; min-width: 0;
+}
+.edit-bar-label {
+    font-size: 12px; font-weight: 700; color: #d97706;
+    margin-bottom: 2px;
+}
+.edit-bar-text {
+    font-size: 13px; color: #555;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.edit-bar-close {
+    background: none; border: none; font-size: 18px;
+    color: #d97706; cursor: pointer; padding: 4px 8px;
+    border-radius: 50%;
+}
+.edit-bar-close:hover { background: rgba(217, 119, 6, 0.1); }
+.send-btn.editing {
+    background: #4caf50; transform: scale(1.05);
+    transition: all 0.2s;
+}

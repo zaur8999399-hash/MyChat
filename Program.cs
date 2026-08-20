@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS PollVotes (
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Rooms ADD COLUMN Description TEXT NOT NULL DEFAULT '';"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Rooms ADD COLUMN Roles TEXT NOT NULL DEFAULT '';"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Rooms ADD COLUMN PinnedMessageId INTEGER;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN EditedAt TEXT;"); } catch { }
 }
 
 async Task SignInUser(HttpContext context, User user)
@@ -448,7 +449,7 @@ app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrinci
         m.Id, m.RoomId, m.UserId,
         Name = m.User!.Name,
         AvatarUrl = m.User.AvatarUrl,
-        m.Text, m.SentAt, m.IsRead, m.ReplyToId,
+        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,
         reactions = reactions.Where(r => r.MessageId == m.Id)
             .GroupBy(r => r.Emoji)
             .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId) })
@@ -1313,6 +1314,28 @@ app.MapPost("/api/messages/{id:int}/react", async (int id, ClaimsPrincipal princ
 
     await hub.Clients.Group($"room-{msg.RoomId}").SendAsync("messagereacted", id, summary);
     return Results.Ok(new { ok = true, reactions = summary });
+}).RequireAuthorization();
+
+// Редактирование сообщения (только своё, только текст)
+app.MapPut("/api/messages/{id:int}", async (int id, ClaimsPrincipal principal, AppDb db, IHubContext<ChatHub> hub, EditedMessageDto dto) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var msg = await db.Messages.FindAsync(id);
+    if (msg == null) return Results.NotFound(new { error = "Сообщение не найдено" });
+    if (msg.UserId != userId) return Results.BadRequest(new { error = "Можно редактировать только своё" });
+
+    var text = (dto.Text ?? "").Trim();
+    if (string.IsNullOrEmpty(text)) return Results.BadRequest(new { error = "Текст не может быть пустым" });
+    if (text.Length > 1000) text = text[..1000];
+
+    msg.Text = text;
+    msg.EditedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    await hub.Clients.Group($"room-{msg.RoomId}").SendAsync("messageedited", id, msg.Text, msg.EditedAt);
+    return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
