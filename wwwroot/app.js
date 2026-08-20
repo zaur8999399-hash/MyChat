@@ -1804,6 +1804,18 @@ function closeLogoutModal() {
                     clearTimeout(typingTimer);
                     typingTimer = setTimeout(() => updateHeaderStatus(), 2000);
                 });
+
+                                connection.on('messagereacted', (msgId, reactions) => {
+                    const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+                    if (!row) return;
+                    let cont = row.querySelector('.msg-reactions');
+                    if (!cont) {
+                        cont = document.createElement('div');
+                        cont.className = 'msg-reactions';
+                        row.querySelector('.bubble').appendChild(cont);
+                    }
+                    renderReactionChips(cont, msgId, reactions);
+                });
             // После восстановления соединения — возвращаемся в открытый чат
                connection.onreconnected(async () => {
                    if (currentRoomId) {
@@ -2099,6 +2111,12 @@ async function markRoomRead(roomId) {
         ticks.innerHTML = ticksHtml(m.isRead);
         bubble.appendChild(ticks);
     }
+    
+        // Реакции под сообщением
+    const reactCont = document.createElement('div');
+    reactCont.className = 'msg-reactions';
+    bubble.appendChild(reactCont);
+    renderReactionChips(reactCont, m.id, m.reactions);
 
     row.appendChild(av);
     row.appendChild(bubble);
@@ -2173,6 +2191,23 @@ function openMessageMenu(e, m) {
             pinMessage(m.id);
         });
     }
+    
+        // Быстрые реакции
+    const reactTitle = document.createElement('div');
+    reactTitle.className = 'menu-react-title';
+    reactTitle.textContent = 'Реакция:';
+    menu.appendChild(reactTitle);
+
+    const reactRow = document.createElement('div');
+    reactRow.className = 'menu-react-row';
+    ['❤️', '🔥', '😂', '👍', '😮', '😢'].forEach(em => {
+        const b = document.createElement('button');
+        b.className = 'menu-react-btn';
+        b.textContent = em;
+        b.onclick = () => { closeChatMenu(); reactToMessage(m.id, em); };
+        reactRow.appendChild(b);
+    });
+    menu.appendChild(reactRow);
 
     const rect = e.currentTarget.getBoundingClientRect();
     menu.classList.remove('hidden');
@@ -2642,4 +2677,37 @@ function applyUnreadBadge(row, roomId) {
     } else {
         badge.classList.add('hidden');
     }
+}
+
+// ===== РЕАКЦИИ НА СООБЩЕНИЯ =====
+async function reactToMessage(msgId, emoji) {
+    try {
+        const res = await api(`/api/messages/${msgId}/react`, 'POST', { emoji });
+        const row = document.querySelector(`[data-msg-id="${msgId}"]`);
+        if (row) {
+            let cont = row.querySelector('.msg-reactions');
+            if (!cont) {
+                cont = document.createElement('div');
+                cont.className = 'msg-reactions';
+                row.querySelector('.bubble').appendChild(cont);
+            }
+            renderReactionChips(cont, msgId, res.reactions);
+        }
+    } catch (e) { alert(e.message); }
+}
+
+function renderReactionChips(container, msgId, reactions) {
+    container.innerHTML = '';
+    if (!reactions || reactions.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    reactions.forEach(r => {
+        const chip = document.createElement('button');
+        chip.className = 'msg-reaction' + (r.mine ? ' mine' : '');
+        chip.textContent = `${r.emoji} ${r.count}`;
+        chip.onclick = () => reactToMessage(msgId, r.emoji);
+        container.appendChild(chip);
+    });
 }

@@ -45,6 +45,12 @@ using (var scope = app.Services.CreateScope())
     }
 
     db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS MessageReactions (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    MessageId INTEGER NOT NULL,
+    UserId INTEGER NOT NULL,
+    Emoji TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS Posts (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     UserId INTEGER NOT NULL,
@@ -419,29 +425,37 @@ app.MapPost("/api/rooms", async (CreateRoomDto dto, AppDb db, IHubContext<ChatHu
     await hub.Clients.All.SendAsync("roomschanged");
     return Results.Ok(new { room.Id, room.Name });
 }).RequireAuthorization();
-app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db) =>
+app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrincipal principal) =>
 {
     if (!await db.Rooms.AnyAsync(r => r.Id == id))
         return Results.NotFound();
 
+    var myId = 0;
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (int.TryParse(idv, out int uid)) myId = uid;
+
     var messages = await db.Messages
         .Where(m => m.RoomId == id)
         .OrderBy(m => m.Id)
-                .Select(m => new
-        {
-            m.Id,
-            m.RoomId,
-            m.UserId,
-            Name = m.User!.Name,
-            AvatarUrl = m.User.AvatarUrl,
-            m.Text,
-            m.SentAt,
-            m.IsRead,
-            m.ReplyToId
-        })
+        .Include(m => m.User)
         .ToListAsync();
 
-    return Results.Ok(messages);
+    var msgIds = messages.Select(m => m.Id).ToList();
+    var reactions = await db.MessageReactions.Where(r => msgIds.Contains(r.MessageId)).ToListAsync();
+
+    var result = messages.Select(m => new
+    {
+        m.Id, m.RoomId, m.UserId,
+        Name = m.User!.Name,
+        AvatarUrl = m.User.AvatarUrl,
+        m.Text, m.SentAt, m.IsRead, m.ReplyToId,
+        reactions = reactions.Where(r => r.MessageId == m.Id)
+            .GroupBy(r => r.Emoji)
+            .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId) })
+            .ToList()
+    });
+
+    return Results.Ok(result);
 }).RequireAuthorization();
 
 app.MapGet("/api/messages/{id:int}", async (int id, AppDb db) =>
@@ -1272,6 +1286,34 @@ app.MapPost("/api/polls/{id:int}/vote", async (int id, ClaimsPrincipal principal
 app.MapGet("/api/users/online", () =>
     Results.Ok(ChatHub.OnlineUsers.Keys.ToArray())
 ).RequireAuthorization();
+
+// Реакция на сообщение
+app.MapPost("/api/messages/{id:int}/react", async (int id, ClaimsPrincipal principal, AppDb db, ReactMessageDto dto, IHubContext<ChatHub> hub) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var msg = await db.Messages.FindAsync(id);
+    if (msg == null) return Results.NotFound(new { error = "Сообщение не найдено" });
+
+    var existing = await db.MessageReactions.FirstOrDefaultAsync(r => r.MessageId == id && r.UserId == userId);
+    if (existing != null && existing.Emoji == dto.Emoji)
+        db.MessageReactions.Remove(existing);
+    else if (existing != null)
+        existing.Emoji = dto.Emoji;
+    else
+        db.MessageReactions.Add(new MessageReaction { MessageId = id, UserId = userId, Emoji = dto.Emoji });
+
+    await db.SaveChangesAsync();
+
+    var summary = (await db.MessageReactions.Where(r => r.MessageId == id).ToListAsync())
+        .GroupBy(r => r.Emoji)
+        .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == userId) })
+        .ToList();
+
+    await hub.Clients.Group($"room-{msg.RoomId}").SendAsync("messagereacted", id, summary);
+    return Results.Ok(new { ok = true, reactions = summary });
+}).RequireAuthorization();
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 

@@ -2231,3 +2231,18 @@
     display: flex; align-items: center; justify-content: center;
     margin-left: 8px; flex-shrink: 0;
 }
+
+/* ===== РЕАКЦИИ НА СООБЩЕНИЯ ===== */
+.msg-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.msg-reaction {
+    border: 1px solid #e2e5ee; background: #f5f6fa; border-radius: 12px;
+    padding: 2px 8px; font-size: 12px; cursor: pointer;
+}
+.msg-reaction.mine { border-color: #5b7cfa; background: rgba(91,124,250,0.12); }
+.menu-react-title { font-size: 12px; color: #8a8a8e; padding: 6px 12px 2px; }
+.menu-react-row { display: flex; gap: 4px; padding: 6px 12px; }
+.menu-react-btn {
+    font-size: 18px; background: none; border: none; cursor: pointer;
+    padding: 4px; border-radius: 8px;
+}
+.menu-react-btn:hover { background: #f0f2f5; }

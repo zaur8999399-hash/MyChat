@@ -5,38 +5,6 @@
       "PackagePath": "staticwebassets\\app.js"
     },
     {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.jpg",
-      "PackagePath": "staticwebassets\\avatars\\1.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\15.png",
-      "PackagePath": "staticwebassets\\avatars\\15.png"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\16.jpg",
-      "PackagePath": "staticwebassets\\avatars\\16.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\2.jpeg",
-      "PackagePath": "staticwebassets\\avatars\\2.jpeg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\3.jpeg",
-      "PackagePath": "staticwebassets\\avatars\\3.jpeg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\4.png",
-      "PackagePath": "staticwebassets\\avatars\\4.png"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\5.jpg",
-      "PackagePath": "staticwebassets\\avatars\\5.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\6.jpeg",
-      "PackagePath": "staticwebassets\\avatars\\6.jpeg"
-    },
-    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",
       "PackagePath": "staticwebassets\\icon.png"
     },
@@ -47,34 +15,6 @@
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\manifest.json",
       "PackagePath": "staticwebassets\\manifest.json"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639220135769858042.jpg",
-      "PackagePath": "staticwebassets\\posts\\post_639220135769858042.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639220138886736310.jpg",
-      "PackagePath": "staticwebassets\\posts\\post_639220138886736310.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639220145156403239.jpeg",
-      "PackagePath": "staticwebassets\\posts\\post_639220145156403239.jpeg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639221699275279276.png",
-      "PackagePath": "staticwebassets\\posts\\post_639221699275279276.png"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639221775704693779.jpg",
-      "PackagePath": "staticwebassets\\posts\\post_639221775704693779.jpg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639221775843276483.jpeg",
-      "PackagePath": "staticwebassets\\posts\\post_639221775843276483.jpeg"
-    },
-    {
-      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639223966677938104.jpg",
-      "PackagePath": "staticwebassets\\posts\\post_639223966677938104.jpg"
     },
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\signalr.min.js",

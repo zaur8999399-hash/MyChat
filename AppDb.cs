@@ -19,6 +19,8 @@ public DbSet<Friendship> Friendships => Set<Friendship>();
 public DbSet<Poll> Polls => Set<Poll>();
 public DbSet<PollOption> PollOptions => Set<PollOption>();
 public DbSet<PollVote> PollVotes => Set<PollVote>();
+
+public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<User>()

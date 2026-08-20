@@ -124,3 +124,13 @@ public class PollVote
 
 public record CreatePollDto(string Question, List<string> Options);
 public record VoteDto(int OptionId);
+
+public class MessageReaction
+{
+    public int Id { get; set; }
+    public int MessageId { get; set; }
+    public int UserId { get; set; }
+    public string Emoji { get; set; } = "";
+}
+
+public record ReactMessageDto(string Emoji);
