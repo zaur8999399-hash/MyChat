@@ -1,10 +1,38 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Collections.Concurrent;
 
 public class ChatHub : Hub
 {
+    public static readonly ConcurrentDictionary<int, int> OnlineUsers = new();
+        public override async Task OnConnectedAsync()
+    {
+        var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(userIdValue, out int userId))
+        {
+            OnlineUsers.AddOrUpdate(userId, 1, (_, v) => v + 1);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+            await Clients.All.SendAsync("presence", userId, true);
+        }
+        await base.OnConnectedAsync();
+    }
 
+        public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(userIdValue, out int userId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user-{userId}");
+            var count = OnlineUsers.AddOrUpdate(userId, 0, (_, v) => v - 1);
+            if (count <= 0)
+            {
+                OnlineUsers.TryRemove(userId, out _);
+                await Clients.All.SendAsync("presence", userId, false);
+            }
+        }
+        await base.OnDisconnectedAsync(exception);
+    }
     private async Task<bool> CanAccessRoom(int roomId, int userId)
 {
     var room = await _db.Rooms.FindAsync(roomId);
@@ -40,68 +68,117 @@ public class ChatHub : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, RoomName(roomId));
     }
-
-    public async Task SendMessage(int roomId, string text)
+    public async Task Typing(int roomId)
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return;
-        }
-
-        text = text.Trim();
-
-        if (text.Length > 1000)
-        {
-            text = text[..1000];
-        }
-
         var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!int.TryParse(userIdValue, out int userId))
-        {
-            return;
-        }
-
+        if (!int.TryParse(userIdValue, out int userId)) return;
         var user = await _db.Users.FindAsync(userId);
-
-        if (user == null)
-        {
-            return;
-        }
-
-        var roomExists = await _db.Rooms.AnyAsync(r => r.Id == roomId);
-
-        if (!roomExists)
-        {
-            return;
-        }
-
-        if (!await CanAccessRoom(roomId, userId))
-        {
-            return;
-        }
-
-        var message = new Message
-        {
-            RoomId = roomId,
-            UserId = userId,
-            Text = text
-        };
-
-        _db.Messages.Add(message);
-        await _db.SaveChangesAsync();
-
-        await Clients.Group(RoomName(roomId)).SendAsync("receive", new
-        {
-            message.Id,
-            roomId,
-            userId,
-            name = user.Name,
-            avatarUrl = user.AvatarUrl,
-            text = message.Text,
-            sentAt = message.SentAt
-        });
+        await Clients.Group(RoomName(roomId)).SendAsync("typing", userId, user?.Name ?? "");
     }
+    public async Task SendMessage(int roomId, string text, int? replyToId = null)
+{
+    if (string.IsNullOrWhiteSpace(text)) return;
+    text = text.Trim();
+    if (text.Length > 1000) text = text[..1000];
+
+    var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(userIdValue, out int userId)) return;
+
+    var user = await _db.Users.FindAsync(userId);
+    if (user == null) return;
+    if (!await _db.Rooms.AnyAsync(r => r.Id == roomId)) return;
+    if (!await CanAccessRoom(roomId, userId)) return;
+
+    var message = new Message
+    {
+        RoomId = roomId,
+        UserId = userId,
+        Text = text,
+        ReplyToId = replyToId
+    };
+
+    _db.Messages.Add(message);
+    await _db.SaveChangesAsync();
+
+    // Получаем автора ответа для отображения
+    string? replyAuthorName = null;
+    string? replyText = null;
+    if (replyToId != null)
+    {
+        var reply = await _db.Messages.FindAsync(replyToId.Value);
+        if (reply != null)
+        {
+            var replyAuthor = await _db.Users.FindAsync(reply.UserId);
+            replyAuthorName = replyAuthor?.Name;
+            replyText = reply.Text;
+        }
+    }
+
+    await Clients.Group(RoomName(roomId)).SendAsync("receive", new
+    {
+        message.Id,
+        roomId,
+        userId,
+        name = user.Name,
+        avatarUrl = user.AvatarUrl,
+        text = message.Text,
+        sentAt = message.SentAt,
+        isRead = message.IsRead,
+        replyToId = message.ReplyToId,
+        replyAuthorName,
+        replyText
+    });
+
+    // Обновляем список чатов у участников личного чата
+    var room = await _db.Rooms.FindAsync(roomId);
+    if (room != null && !string.IsNullOrEmpty(room.Members))
+    {
+        foreach (var mid in room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            await Clients.Group($"user-{mid}").SendAsync("roomschanged");
+        }
+    }
+}
+
+    public async Task DeleteMessage(int messageId, bool deleteForAll)
+{
+    var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(userIdValue, out int userId)) return;
+
+    var message = await _db.Messages.FindAsync(messageId);
+    if (message == null) return;
+
+    // Проверка: если удаляем у всех — это должно быть своё сообщение
+    if (deleteForAll && message.UserId != userId) return;
+
+    int roomId = message.RoomId;
+
+    _db.Messages.Remove(message);
+    await _db.SaveChangesAsync();
+
+    if (deleteForAll)
+    {
+        // Удалить у всех — рассылаем всем участникам чата
+        var room = await _db.Rooms.FindAsync(roomId);
+        if (room != null && !string.IsNullOrEmpty(room.Members))
+        {
+            foreach (var mid in room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                await Clients.Group($"user-{mid}").SendAsync("messagedeleted", messageId, roomId);
+            }
+        }
+        else
+        {
+            // Общий чат — рассылаем всем
+            await Clients.All.SendAsync("messagedeleted", messageId, roomId);
+        }
+    }
+    else
+    {
+        // Удалили только у себя — рассылаем только себе
+        await Clients.Group($"user-{userId}").SendAsync("messagedeleted", messageId, roomId);
+    }
+}
 
     private static string RoomName(int roomId)
     {
@@ -145,6 +222,8 @@ public class ChatHub : Hub
     _db.Rooms.Add(newRoom);
     await _db.SaveChangesAsync();
 
+    await Clients.Group($"user-{userId}").SendAsync("roomschanged");
+    await Clients.Group($"user-{targetUser.Id}").SendAsync("roomschanged");
     return new { id = newRoom.Id, name = targetUser.Name, isGroup = false };
    }
 
@@ -184,6 +263,9 @@ public class ChatHub : Hub
 
     _db.Rooms.Add(newRoom);
     await _db.SaveChangesAsync();
+    
+        await Clients.Group($"user-{userId}").SendAsync("roomschanged");
+    await Clients.Group($"user-{targetUser.Id}").SendAsync("roomschanged");
 
     return new { id = newRoom.Id, name = targetUser.Name, isGroup = false };
 }
