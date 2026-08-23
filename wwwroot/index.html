@@ -92,13 +92,36 @@
             </div>
             <button class="reply-bar-close" onclick="cancelReply()">✕</button>
         </div>
-                        <div class="input-bar">
-                        <input id="messageText"
-                   placeholder="Сообщение"
-                   oninput="onTyping()"
-                   onkeydown="if (event.key === 'Enter') sendMessage()">
-            <button class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
-            <button class="send-btn" onclick="sendMessage()">➤</button>
+                                <div id="chatImagePreview" class="chat-image-preview hidden">
+            <img id="chatPreviewImg" src="">
+            <button class="chat-preview-remove" onclick="removeChatImage()">✕</button>
+        </div>
+                <input type="file" id="chatImageInput" accept="image/*" class="hidden" onchange="previewChatImage()">
+        <div class="input-bar" id="inputBar">
+            <!-- Обычный режим: ввод текста -->
+            <div class="input-bar-content" id="inputBarContent">
+                <button class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Прикрепить фото">📎</button>
+                <input id="messageText"
+                       placeholder="Сообщение"
+                       oninput="onTyping(); updateVoiceButtonVisibility();"
+                       onkeydown="if (event.key === 'Enter') sendMessage()">
+                <div class="disappearing-indicator hidden" id="disappearingIndicator" onclick="openDisappearingModal()" title="Исчезающие сообщения">
+                    <span>⏳</span>
+                    <span id="disappearingIndicatorText"></span>
+                </div>
+                <button class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
+                <button class="voice-btn hidden" id="voiceBtn" title="Голосовое сообщение" onclick="toggleRecording()">🎤</button>
+                <button class="send-btn hidden" id="sendBtn" onclick="sendMessage()">➤</button>
+            </div>
+            
+            <!-- Режим записи голосового -->
+            <div class="input-bar-recording hidden" id="inputBarRecording">
+                <span class="recording-dot"></span>
+                <span class="recording-text">Запись...</span>
+                <span class="recording-time" id="recordingTime">0:00</span>
+                <button class="recording-cancel" onclick="cancelRecording()" title="Отменить">✕</button>
+                <button class="recording-stop" onclick="stopRecording()" title="Отправить">🎤</button>
+            </div>
         </div>
     </div>
 
@@ -561,6 +584,16 @@
             <button onclick="closeForwardModal()" class="close-modal-btn">✕</button>
         </div>
         <div id="forwardRoomsList" class="forward-rooms-list"></div>
+    </div>
+</div>
+
+<!-- ИСЧЕЗАЮЩИЕ СООБЩЕНИЯ -->
+<div id="disappearingModal" class="status-modal-overlay hidden" onclick="if(event.target===this) closeDisappearingModal()">
+    <div class="delete-modal">
+        <div class="delete-modal-icon">⏳</div>
+        <div class="delete-modal-title">Исчезающие сообщения</div>
+        <div class="delete-modal-text">Сообщения будут удаляться у всех через выбранное время.</div>
+        <div class="disappearing-options" id="disappearingOptions"></div>
     </div>
 </div>
 

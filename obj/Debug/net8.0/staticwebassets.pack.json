@@ -5,8 +5,52 @@
       "PackagePath": "staticwebassets\\app.js"
     },
     {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231024582527375.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231024582527375.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231025127244624.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231025127244624.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231026020166663.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231026020166663.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231030371351738.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231030371351738.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231035669555352.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231035669555352.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231037264121743.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231037264121743.webm"
+    },
+    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.png",
       "PackagePath": "staticwebassets\\avatars\\1.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230986220979509.png",
+      "PackagePath": "staticwebassets\\chatimages\\chat_1_639230986220979509.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230986220980059.png",
+      "PackagePath": "staticwebassets\\chatimages\\chat_1_639230986220980059.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230988158300087.png",
+      "PackagePath": "staticwebassets\\chatimages\\chat_1_639230988158300087.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230997387891868.png",
+      "PackagePath": "staticwebassets\\chatimages\\chat_1_639230997387891868.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230999747988237.jpg",
+      "PackagePath": "staticwebassets\\chatimages\\chat_1_639230999747988237.jpg"
     },
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",
@@ -23,6 +67,10 @@
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639228584773755960.png",
       "PackagePath": "staticwebassets\\posts\\post_639228584773755960.png"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\posts\\post_639230437416241925.jpg",
+      "PackagePath": "staticwebassets\\posts\\post_639230437416241925.jpg"
     },
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\signalr.min.js",

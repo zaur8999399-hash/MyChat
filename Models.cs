@@ -16,7 +16,7 @@ public class User
 public class Room
 {
     public int Id { get; set; }
-
+    public int DisappearingSeconds { get; set; } = 0;
     public string Name { get; set; } = string.Empty;
     public bool IsGroup { get; set; } = true;
     public string Members { get; set; } = "";
@@ -29,11 +29,13 @@ public class Room
 
 public class Message
 {
+    public string? AudioUrl { get; set; }
+    public DateTime? ExpiresAt { get; set; }
     public int? ForwardedFromId { get; set; }
     public string? ForwardedFromName { get; set; }
     public bool IsRead { get; set; } = false;
     public int Id { get; set; }
-
+    public string? ImageUrl { get; set; }
     public int RoomId { get; set; }
 
     public Room? Room { get; set; }
@@ -86,6 +88,8 @@ public class Friendship
     public string Status { get; set; } = "pending";  // pending / accepted
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public record DisappearingDto(int Seconds);
 public record ForwardMessageDto(int RoomId);
 public record FriendRequestDto(string Login);
 public record CreatePostDto(string Text, string Emoji1, string Emoji2, string? ImageUrl);

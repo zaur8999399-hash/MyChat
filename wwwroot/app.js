@@ -11,6 +11,13 @@
         let replyTo = null; // { id, name, text }
         let unreadCounts = {};
         let editingMessage = null; // { id, text }
+        let chatImageFile = null;
+        let chatImageUrl = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingTimer = null;
+        let recordingSeconds = 0;
+        let currentAudioUrl = null;
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
@@ -1503,11 +1510,12 @@ async function openGroupChatById(id) {
     av.onclick = () => openGroupScreen(currentGroup.id);
     av.style.cursor = 'pointer';
 
-    showView('chat');
+        showView('chat');
     updatePinnedBar();
-        const pollBtn = document.getElementById('pollBtn');
+    const pollBtn = document.getElementById('pollBtn');
     if (pollBtn) pollBtn.classList.remove('hidden');
-        updateHeaderStatus();
+    updateHeaderStatus();
+    updateDisappearingIndicator(); 
 }
 
 // ===== МЕНЮ ЧАТА (ТРИ ТОЧКИ) =====
@@ -1526,6 +1534,8 @@ function openChatMenu(e) {
         addChatMenuItem(menu, 'Участники', () => { closeChatMenu(); openGroupScreen(currentGroup.id); });
     }
     addChatMenuItem(menu, 'Очистить чат', () => { closeChatMenu(); confirmClearChat(); });
+    addChatMenuItem(menu, '⏳ Исчезающие', () => { closeChatMenu(); openDisappearingModal(); });
+
     if (currentRoomIsGroup) {
         addChatMenuItem(menu, 'Покинуть группу', () => { closeChatMenu(); confirmLeaveGroup(); });
     }
@@ -2037,6 +2047,7 @@ function backToChatsList() {
     renderRooms();
     localStorage.setItem('lastRoomId', roomId);
     updateHeaderStatus();
+    updateDisappearingIndicator();
 }
 
         async function loadMessages(roomId) {
@@ -2117,9 +2128,84 @@ async function markRoomRead(roomId) {
     textEl.className = 'msg-text';
     textEl.textContent = m.text;
 
-    bubble.appendChild(nameEl);
+        bubble.appendChild(nameEl);
     bubble.appendChild(textEl);
 
+    // Фото в сообщении
+    if (m.imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'msg-image';
+        img.src = m.imageUrl;
+        img.onclick = () => viewChatImage(m.imageUrl);
+        bubble.appendChild(img);
+    }
+    // Голосовое сообщение
+    if (m.audioUrl) {
+        const audio = document.createElement('div');
+        audio.className = 'msg-audio';
+        
+        const playBtn = document.createElement('button');
+        playBtn.className = 'msg-audio-play';
+        playBtn.textContent = '▶';
+        
+        const info = document.createElement('div');
+        info.className = 'msg-audio-info';
+        
+        const title = document.createElement('div');
+        title.className = 'msg-audio-title';
+        title.textContent = '🎤 Голосовое сообщение';
+        
+        const wave = document.createElement('div');
+        wave.className = 'msg-audio-wave';
+        for (let i = 0; i < 12; i++) {
+            const bar = document.createElement('span');
+            bar.style.height = (15 + Math.random() * 85) + '%';
+            wave.appendChild(bar);
+        }
+        
+        const time = document.createElement('div');
+        time.className = 'msg-audio-time';
+        time.textContent = '0:00';
+        
+        info.appendChild(title);
+        info.appendChild(wave);
+        info.appendChild(time);
+        
+        audio.appendChild(playBtn);
+        audio.appendChild(info);
+        
+        const audioEl = new Audio(m.audioUrl);
+        let isPlaying = false;
+        
+        playBtn.onclick = () => {
+            if (isPlaying) {
+                audioEl.pause();
+                audioEl.currentTime = 0;
+                playBtn.textContent = '▶';
+                wave.classList.remove('playing');
+                isPlaying = false;
+            } else {
+                audioEl.play();
+                playBtn.textContent = '⏸';
+                wave.classList.add('playing');
+                isPlaying = true;
+            }
+        };
+        
+        audioEl.onended = () => {
+            playBtn.textContent = '▶';
+            wave.classList.remove('playing');
+            isPlaying = false;
+        };
+        
+        audioEl.ontimeupdate = () => {
+            const m = Math.floor(audioEl.currentTime / 60);
+            const s = Math.floor(audioEl.currentTime % 60);
+            time.textContent = m + ':' + String(s).padStart(2, '0');
+        };
+        
+        bubble.appendChild(audio);
+    }
     if (m.EditedAt) {
         const lbl = document.createElement('span');
         lbl.className = 'msg-edited-label';
@@ -2163,7 +2249,8 @@ async function markRoomRead(roomId) {
         };
         row.appendChild(menu);
     }
-
+    // Таймер исчезновения
+    if (m.expiresAt) scheduleExpire(m.id, m.expiresAt);
     row.dataset.msgId = m.id;
     list.appendChild(row);
     list.scrollTop = list.scrollHeight;
@@ -2173,27 +2260,63 @@ async function markRoomRead(roomId) {
     const input = document.getElementById('messageText');
     const text = input.value;
 
-    if (!text.trim()) return;
+    // Проверяем что есть ЧТО отправлять (текст, ИЛИ фото, ИЛИ аудио)
+    if (!text.trim() && !chatImageUrl && !chatImageFile && !currentAudioUrl) return;
     if (!connection || !currentRoomId) return;
 
-    // Если в режиме редактирования — отправляем PUT
+    // Если в режиме редактирования — отправляем PUT (только текст)
     if (editingMessage) {
         try {
             await api(`/api/messages/${editingMessage.id}`, 'PUT', { text: text.trim() });
             input.value = '';
             cancelEdit();
+            updateVoiceButtonVisibility();
         } catch (e) {
             alert(e.message || 'Не удалось сохранить');
         }
         return;
     }
 
-    // Обычная отправка
+    // Загружаем фото если есть
+    let finalImageUrl = chatImageUrl;
+    if (chatImageFile && !finalImageUrl) {
+        try {
+            const fd = new FormData();
+            fd.append('image', chatImageFile);
+            const res = await fetch('/api/chatimage', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
+            if (!res.ok) throw new Error('Не удалось загрузить фото');
+            const data = await res.json();
+            finalImageUrl = data.imageUrl;
+        } catch (e) {
+            alert(e.message);
+            return;
+        }
+    }
+
+    // Аудио уже загружено (currentAudioUrl) или null
+    const finalAudioUrl = currentAudioUrl || null;
+
+    // Отправляем через SignalR со ВСЕМИ параметрами
     try {
         const replyId = replyTo ? replyTo.id : null;
-        await connection.invoke('SendMessage', currentRoomId, text, replyId);
+        await connection.invoke('SendMessage', 
+            currentRoomId, 
+            text.trim(), 
+            replyId, 
+            finalImageUrl, 
+            finalAudioUrl  // ← ВАЖНО: 5-й параметр!
+        );
+        
+        // Очищаем всё после отправки
         input.value = '';
         cancelReply();
+        removeChatImage();
+        currentAudioUrl = null;
+        updateVoiceButtonVisibility();
     } catch (e) {
         alert('Не удалось отправить: ' + (e.message || 'проверь соединение'));
     }
@@ -2680,14 +2803,24 @@ function updateOnlineUI(userId) {
 function updateHeaderStatus() {
     const el = document.getElementById('headerStatus');
     if (!el) return;
-    if (currentRoomIsGroup) { el.textContent = ''; return; }
+    const sec = currentDisappearingSeconds();
+    const disText = sec > 0 ? '⏳ ' + formatDisappearing(sec) : '';
+
+    if (currentRoomIsGroup) {
+        el.textContent = disText;
+        el.style.color = '#5b7cfa';
+        return;
+    }
     const room = rooms.find(r => r.id === currentRoomId);
     if (room && room.otherUserId) {
         const online = onlineUsers.has(room.otherUserId);
-        el.textContent = online ? 'в сети' : 'не в сети';
+        let text = online ? 'в сети' : 'не в сети';
+        if (disText) text += ' · ' + disText;
+        el.textContent = text;
         el.style.color = online ? '#34c759' : '#8a8a8e';
     } else {
-        el.textContent = '';
+        el.textContent = disText;
+        el.style.color = '#5b7cfa';
     }
 }
 
@@ -2839,4 +2972,298 @@ async function forwardMessage(targetRoomId) {
     } catch (e) {
         alert(e.message || 'Не удалось переслать');
     }
+}
+
+function currentDisappearingSeconds() {
+    if (currentRoomIsGroup && currentGroup) return currentGroup.disappearingSeconds || 0;
+    const room = rooms.find(r => r.id === currentRoomId);
+    return room ? (room.disappearingSeconds || 0) : 0;
+}
+
+function formatDisappearing(sec) {
+    if (sec < 60) return sec + ' сек';
+    return Math.round(sec / 60) + ' мин';
+}
+
+function updateDisappearingIndicator() {
+    const ind = document.getElementById('disappearingIndicator');
+    const txt = document.getElementById('disappearingIndicatorText');
+    if (!ind) return;
+    const sec = currentDisappearingSeconds();
+    if (sec > 0) {
+        txt.textContent = formatDisappearing(sec);
+        ind.classList.remove('hidden');
+    } else {
+        ind.classList.add('hidden');
+    }
+}
+
+function scheduleExpire(msgId, expiresAt) {
+    const delay = new Date(expiresAt).getTime() - Date.now();
+    if (delay <= 0) {
+        expireMessage(msgId);
+        return;
+    }
+    setTimeout(() => expireMessage(msgId), delay);
+}
+
+async function expireMessage(msgId) {
+    removeMessageFromDOM(msgId);
+    try { await api(`/api/messages/${msgId}/expire`, 'POST'); } catch { }
+}
+
+function openDisappearingModal() {
+    const wrap = document.getElementById('disappearingOptions');
+    wrap.innerHTML = '';
+    const options = [
+        { label: 'Выключено', sec: 0 },
+        { label: '5 секунд', sec: 5 },
+        { label: '30 секунд', sec: 30 },
+        { label: '1 минута', sec: 60 },
+        { label: '5 минут', sec: 300 }
+    ];
+    const current = currentDisappearingSeconds();
+    options.forEach(o => {
+        const b = document.createElement('button');
+        b.className = 'disappearing-option' + (current === o.sec ? ' active' : '');
+        b.textContent = o.label;
+        b.onclick = async () => {
+            try {
+                await api(`/api/rooms/${currentRoomId}/disappearing`, 'POST', { seconds: o.sec });
+                if (currentRoomIsGroup && currentGroup) currentGroup.disappearingSeconds = o.sec;
+                else {
+                    const room = rooms.find(r => r.id === currentRoomId);
+                    if (room) room.disappearingSeconds = o.sec;
+                }
+                closeDisappearingModal();
+                updateDisappearingIndicator();
+                updateHeaderStatus();
+            } catch (e) { alert(e.message); }
+        };
+        wrap.appendChild(b);
+    });
+    document.getElementById('disappearingModal').classList.remove('hidden');
+}
+
+function closeDisappearingModal() {
+    document.getElementById('disappearingModal').classList.add('hidden');
+}
+
+
+// ===== ОТПРАВКА + LONG PRESS (чистый вариант) =====
+(function setupSendButton() {
+    const sendBtn = document.getElementById('sendBtn');
+    if (!sendBtn) return;
+    
+    let holdTimer = null;
+    let holdTriggered = false;
+    
+    // Обычный клик = отправка
+    sendBtn.addEventListener('click', (e) => {
+        if (holdTriggered) {
+            e.preventDefault();
+            e.stopPropagation();
+            holdTriggered = false;
+            return;
+        }
+        sendMessage();
+    });
+    
+    // Long press (600мс) = модалка исчезающих
+    const startHold = (e) => {
+        if (e.type === 'touchstart') e.preventDefault();
+        holdTriggered = false;
+        sendBtn.classList.add('holding');
+        holdTimer = setTimeout(() => {
+            holdTriggered = true;
+            sendBtn.classList.remove('holding');
+            if (navigator.vibrate) navigator.vibrate(30);
+            openDisappearingModal();
+        }, 600);
+    };
+    
+    const endHold = () => {
+        sendBtn.classList.remove('holding');
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    };
+    
+    sendBtn.addEventListener('mousedown', startHold);
+    sendBtn.addEventListener('mouseup', endHold);
+    sendBtn.addEventListener('mouseleave', endHold);
+    sendBtn.addEventListener('touchstart', startHold);
+    sendBtn.addEventListener('touchend', endHold);
+})();
+
+
+
+// ===== ФОТО В ЧАТЕ =====
+function previewChatImage() {
+    const input = document.getElementById('chatImageInput');
+    const file = input.files[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+        alert('Файл слишком большой (макс 8 МБ)');
+        input.value = '';
+        return;
+    }
+
+    chatImageFile = file;
+    chatImageUrl = null;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('chatPreviewImg').src = e.target.result;
+        document.getElementById('chatImagePreview').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+function removeChatImage() {
+    chatImageFile = null;
+    chatImageUrl = null;
+    document.getElementById('chatImagePreview').classList.add('hidden');
+    document.getElementById('chatPreviewImg').src = '';
+}
+
+function viewChatImage(url) {
+    const overlay = document.createElement('div');
+    overlay.className = 'image-view-overlay';
+    overlay.onclick = () => overlay.remove();
+    const img = document.createElement('img');
+    img.src = url;
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+}
+
+// ===== ГОЛОСОВЫЕ СООБЩЕНИЯ =====
+function updateVoiceButtonVisibility() {
+    const input = document.getElementById('messageText');
+    const sendBtn = document.getElementById('sendBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
+    
+    if (!sendBtn || !voiceBtn) return;
+    
+    // Если идёт запись — не трогаем кнопки (они скрыты через inputBarRecording)
+    const recBar = document.getElementById('inputBarRecording');
+    if (recBar && !recBar.classList.contains('hidden')) return;
+    
+    // Микрофон показываем когда поле ввода ПУСТОЕ и нет фото и нет аудио
+    const hasContent = input && input.value.trim().length > 0;
+    const hasMedia = chatImageFile || chatImageUrl || currentAudioUrl;
+    
+    if (!hasContent && !hasMedia) {
+        voiceBtn.classList.remove('hidden');
+        sendBtn.classList.add('hidden');
+    } else {
+        voiceBtn.classList.add('hidden');
+        sendBtn.classList.remove('hidden');
+    }
+}
+
+(function initVoice() {
+    const input = document.getElementById('messageText');
+    if (input) {
+        input.addEventListener('input', updateVoiceButtonVisibility);
+    }
+    updateVoiceButtonVisibility();
+})();
+
+async function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    } else {
+        await startRecording();
+    }
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            
+            if (audioBlob.size < 5000) {
+                finishRecording();
+                return;
+            }
+            
+            try {
+                const fd = new FormData();
+                fd.append('audio', audioBlob, 'voice.webm');
+                const res = await fetch('/api/chataudio', {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) throw new Error('Не удалось загрузить');
+                const data = await res.json();
+                currentAudioUrl = data.audioUrl;
+                finishRecording();
+                await sendMessage();
+            } catch (e) {
+                alert(e.message);
+                finishRecording();
+            }
+        };
+        
+        mediaRecorder.start();
+        recordingSeconds = 0;
+        
+        // Показываем режим записи внутри input-bar
+        document.getElementById('inputBarContent').classList.add('hidden');
+        document.getElementById('inputBarRecording').classList.remove('hidden');
+        
+        updateRecordingTime();
+        recordingTimer = setInterval(() => {
+            recordingSeconds++;
+            updateRecordingTime();
+            if (recordingSeconds >= 60) stopRecording();
+        }, 1000);
+    } catch (e) {
+        alert('Нет доступа к микрофону: ' + e.message);
+    }
+}
+
+function updateRecordingTime() {
+    const m = Math.floor(recordingSeconds / 60);
+    const s = recordingSeconds % 60;
+    const el = document.getElementById('recordingTime');
+    if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+}
+
+function cancelRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        mediaRecorder = null;
+    }
+    audioChunks = [];
+    finishRecording();
+}
+
+function finishRecording() {
+    clearInterval(recordingTimer);
+    mediaRecorder = null;
+    audioChunks = [];
+    
+    // Возвращаем обычный режим input-bar
+    document.getElementById('inputBarContent').classList.remove('hidden');
+    document.getElementById('inputBarRecording').classList.add('hidden');
+    
+    // Обновляем видимость кнопок
+    updateVoiceButtonVisibility();
 }

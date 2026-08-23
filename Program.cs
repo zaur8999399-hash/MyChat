@@ -101,6 +101,10 @@ CREATE TABLE IF NOT EXISTS PollVotes (
     OptionId INTEGER NOT NULL,
     UserId INTEGER NOT NULL
 );");
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN AudioUrl TEXT;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ImageUrl TEXT;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Rooms ADD COLUMN DisappearingSeconds INTEGER NOT NULL DEFAULT 0;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ExpiresAt TEXT;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ForwardedFromId INTEGER;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ForwardedFromName TEXT;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Posts ADD COLUMN ImageUrl Text;"); } catch{}
@@ -302,6 +306,64 @@ app.MapPost("/api/postimage", async (HttpContext ctx) =>
     return Results.Ok(new { imageUrl = "/posts/" + name });
 }).RequireAuthorization();
 
+// Загрузка фото в чат
+app.MapPost("/api/chatimage", async (HttpContext ctx, ClaimsPrincipal principal) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files.GetFile("image");
+    if (file == null) return Results.BadRequest(new { error = "Нет файла" });
+
+    var ext = Path.GetExtension(file.FileName).ToLower();
+    if (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp" && ext != ".gif")
+        return Results.BadRequest(new { error = "Можно только картинки" });
+
+    if (file.Length > 8 * 1024 * 1024)
+        return Results.BadRequest(new { error = "Файл слишком большой (максимум 8 МБ)" });
+
+    var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "chatimages");
+    Directory.CreateDirectory(dir);
+
+    var name = $"chat_{userId}_{DateTime.Now.Ticks}{ext}";
+    var path = Path.Combine(dir, name);
+
+    using (var stream = new FileStream(path, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    return Results.Ok(new { imageUrl = "/chatimages/" + name });
+}).RequireAuthorization();
+
+// Загрузка голосового в чат
+app.MapPost("/api/chataudio", async (HttpContext ctx, ClaimsPrincipal principal) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files.GetFile("audio");
+    if (file == null) return Results.BadRequest(new { error = "Нет файла" });
+
+    if (file.Length > 5 * 1024 * 1024)
+        return Results.BadRequest(new { error = "Файл слишком большой (максимум 5 МБ)" });
+
+    var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "audio");
+    Directory.CreateDirectory(dir);
+
+    var name = $"voice_{userId}_{DateTime.Now.Ticks}.webm";
+    var path = Path.Combine(dir, name);
+
+    using (var stream = new FileStream(path, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    return Results.Ok(new { audioUrl = "/audio/" + name });
+}).RequireAuthorization();
+
 app.MapPost("/api/avatar", async (HttpContext context, AppDb db) =>
 {
     var idValue = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -403,7 +465,7 @@ app.MapGet("/api/rooms", async (AppDb db, HttpContext ctx) =>
 
         if (show)
         {
-            result.Add(new { id = room.Id, name = displayName, avatarUrl = otherAvatar, otherUserId, isGroup = room.IsGroup });
+            result.Add(new { id = room.Id, name = displayName, avatarUrl = otherAvatar, otherUserId, isGroup = room.IsGroup, disappearingSeconds = room.DisappearingSeconds });
         }
     }
 
@@ -438,6 +500,7 @@ app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrinci
 
     var messages = await db.Messages
         .Where(m => m.RoomId == id)
+        .Where(m => m.ExpiresAt == null || m.ExpiresAt > DateTime.UtcNow)
         .OrderBy(m => m.Id)
         .Include(m => m.User)
         .ToListAsync();
@@ -450,10 +513,10 @@ app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrinci
         m.Id, m.RoomId, m.UserId,
         Name = m.User!.Name,
         AvatarUrl = m.User.AvatarUrl,
-        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,m.ForwardedFromId, m.ForwardedFromName,
+        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,m.ForwardedFromId, m.ForwardedFromName,m.ImageUrl,m.AudioUrl,
         reactions = reactions.Where(r => r.MessageId == m.Id)
             .GroupBy(r => r.Emoji)
-            .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId) })
+            .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId)  })
             .ToList()
     });
 
@@ -806,7 +869,8 @@ app.MapGet("/api/groups/{id:int}", async (int id, ClaimsPrincipal principal, App
         isMember = memberIds.Contains(userId),
         myRole = GetRole(group.Roles, userId),
         pinned,
-        members
+        members,
+        disappearingSeconds = group.DisappearingSeconds
     });
 }).RequireAuthorization();
 
@@ -1389,6 +1453,45 @@ app.MapPost("/api/messages/{id:int}/forward", async (int id, ClaimsPrincipal pri
     });
 
     return Results.Ok(new { ok = true, id = forwarded.Id });
+}).RequireAuthorization();
+
+// Включение/выключение исчезающих сообщений
+app.MapPost("/api/rooms/{id:int}/disappearing", async (int id, ClaimsPrincipal principal, AppDb db, DisappearingDto dto) =>
+{
+    var idValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idValue, out int userId)) return Results.Unauthorized();
+
+    var room = await db.Rooms.FindAsync(id);
+    if (room == null) return Results.NotFound(new { error = "Чат не найден" });
+
+    var memberIds = ParseMembers(room.Members);
+    if (!string.IsNullOrEmpty(room.Members) && !memberIds.Contains(userId))
+        return Results.BadRequest(new { error = "Вы не участник чата" });
+
+    if (room.IsGroup)
+    {
+        var role = GetRole(room.Roles, userId);
+        if (role != "admin" && role != "moder")
+            return Results.BadRequest(new { error = "Только админ/модер может включать исчезание" });
+    }
+
+    if (dto.Seconds < 0 || dto.Seconds > 86400) return Results.BadRequest(new { error = "Недопустимое время" });
+
+    room.DisappearingSeconds = dto.Seconds;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true, seconds = room.DisappearingSeconds });
+}).RequireAuthorization();
+
+// Удаление истёкшего сообщения
+app.MapPost("/api/messages/{id:int}/expire", async (int id, AppDb db, IHubContext<ChatHub> hub) =>
+{
+    var msg = await db.Messages.FindAsync(id);
+    if (msg == null) return Results.Ok(new { ok = true });
+    var roomId = msg.RoomId;
+    db.Messages.Remove(msg);
+    await db.SaveChangesAsync();
+    await hub.Clients.Group($"room-{roomId}").SendAsync("messagedeleted", id, roomId);
+    return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();

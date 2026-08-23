@@ -75,10 +75,11 @@ public class ChatHub : Hub
         var user = await _db.Users.FindAsync(userId);
         await Clients.Group(RoomName(roomId)).SendAsync("typing", userId, user?.Name ?? "");
     }
-    public async Task SendMessage(int roomId, string text, int? replyToId = null)
+    public async Task SendMessage(int roomId, string text, int? replyToId = null, string? imageUrl = null, string? audioUrl = null)
 {
-    if (string.IsNullOrWhiteSpace(text)) return;
-    text = text.Trim();
+    // Разрешаем отправку если есть ИЛИ текст, ИЛИ фото, ИЛИ аудио
+    if (string.IsNullOrWhiteSpace(text) && string.IsNullOrEmpty(imageUrl) && string.IsNullOrEmpty(audioUrl)) return;
+    text = (text ?? "").Trim();
     if (text.Length > 1000) text = text[..1000];
 
     var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -89,12 +90,18 @@ public class ChatHub : Hub
     if (!await _db.Rooms.AnyAsync(r => r.Id == roomId)) return;
     if (!await CanAccessRoom(roomId, userId)) return;
 
-    var message = new Message
+    var room = await _db.Rooms.FindAsync(roomId);
+            var message = new Message
     {
         RoomId = roomId,
         UserId = userId,
         Text = text,
-        ReplyToId = replyToId
+        ReplyToId = replyToId,
+        ExpiresAt = room != null && room.DisappearingSeconds > 0
+            ? DateTime.UtcNow.AddSeconds(room.DisappearingSeconds)
+            : null,
+        ImageUrl = imageUrl,
+        AudioUrl = audioUrl  
     };
 
     _db.Messages.Add(message);
@@ -126,11 +133,13 @@ public class ChatHub : Hub
         isRead = message.IsRead,
         replyToId = message.ReplyToId,
         replyAuthorName,
-        replyText
+        replyText,
+        expiresAt = message.ExpiresAt,
+        imageUrl = message.ImageUrl,
+        audioUrl = message.AudioUrl,
     });
 
     // Обновляем список чатов у участников личного чата
-    var room = await _db.Rooms.FindAsync(roomId);
     if (room != null && !string.IsNullOrEmpty(room.Members))
     {
         foreach (var mid in room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries))
