@@ -41,6 +41,14 @@
       "PackagePath": "staticwebassets\\audio\\voice_1_639231044322869747.webm"
     },
     {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639232137342852939.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639232137342852939.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639232145935158962.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639232145935158962.webm"
+    },
+    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_2_639231223595765634.webm",
       "PackagePath": "staticwebassets\\audio\\voice_2_639231223595765634.webm"
     },
@@ -155,6 +163,14 @@
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\videos\\circle_1_639232107950026224.webm",
       "PackagePath": "staticwebassets\\videos\\circle_1_639232107950026224.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\videos\\circle_1_639232141473575243.webm",
+      "PackagePath": "staticwebassets\\videos\\circle_1_639232141473575243.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\videos\\circle_1_639232145865651182.webm",
+      "PackagePath": "staticwebassets\\videos\\circle_1_639232145865651182.webm"
     },
     {
       "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.MyChat.Microsoft.AspNetCore.StaticWebAssets.props",

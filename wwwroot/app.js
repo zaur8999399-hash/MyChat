@@ -1785,16 +1785,22 @@ function closeLogoutModal() {
                     .withAutomaticReconnect()
                     .build();
 
-                                connection.on('receive', (m) => {
+                                                connection.on('receive', (m) => {
                     addMessage(m);
                     const chatVisible = !document.getElementById('chatView').classList.contains('hidden');
+                    if (m.userId !== currentUserId) {
+                        playMessageSound();  // 🔊 звук на чужие сообщения
+                    }
                     if (m.userId !== currentUserId && m.roomId === currentRoomId && chatVisible) {
                         markRoomRead(m.roomId);
                     } else if (m.userId !== currentUserId) {
-                        // Сообщение в другой чат — плюс к счётчику
                         unreadCounts[m.roomId] = (unreadCounts[m.roomId] || 0) + 1;
                         const row = document.querySelector(`.chat-row[data-room-id="${m.roomId}"]`);
                         if (row) applyUnreadBadge(row, m.roomId);
+                        updateTitleBadge();  // 🔢 счётчик на вкладке
+                        if (document.hidden) {
+                            showBrowserNotification(m.name, m.text || '📷 Фото / 🎤 Голосовое');
+                        }
                     }
                 });
 
@@ -2087,6 +2093,7 @@ function backToChatsList() {
     await loadMessages(roomId);
     markRoomRead(roomId);
     unreadCounts[roomId] = 0;
+    updateTitleBadge();
     const unreadRow = document.querySelector(`.chat-row[data-room-id="${roomId}"]`);
     if (unreadRow) applyUnreadBadge(unreadRow, roomId);
     renderRooms();
@@ -3721,4 +3728,51 @@ function finishVideoRecording() {
     document.getElementById('inputBarRecording').classList.add('hidden');
     
     updateVoiceButtonVisibility();
+}
+
+// ===== УВЕДОМЛЕНИЯ =====
+let audioCtx = null;
+
+function playMessageSound() {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+        g.gain.setValueAtTime(0.2, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + 0.2);
+    } catch { }
+}
+
+function showBrowserNotification(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        try { new Notification(title, { body: body, icon: '/icon.png' }); } catch { }
+    }
+}
+
+async function enableNotifications() {
+    if (!('Notification' in window)) {
+        alert('Твой браузер не поддерживает уведомления 😔');
+        return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+        alert('Уведомления включены! 🔔 Теперь ты не пропустишь сообщения!');
+        new Notification('Мини-чат 🔔', { body: 'Уведомления работают!' });
+    } else {
+        alert('Без разрешений уведомления не включить 🙈');
+    }
+}
+
+function updateTitleBadge() {
+    const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    document.title = total > 0 ? `(${total}) Мини-чат` : 'Мини-чат';
 }
