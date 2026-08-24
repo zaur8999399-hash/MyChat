@@ -18,9 +18,14 @@
         let recordingTimer = null;
         let recordingSeconds = 0;
         let currentAudioUrl = null;
+        let currentVideoUrl = null;
+        let videoRecorder = null;
+        let videoChunks = [];
+        let recordingKind = null; // 'audio' | 'video'
         let currentStreak = 0;
         let currentBestStreak = 0;
         let currentFeedTab = 'foryou';
+        let storyTextPos = { x: 50, y: 50 };
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
@@ -410,6 +415,7 @@ let emojiSlot = 1;
 
 async function loadFeed() {
     const list = document.getElementById('feedList');
+        loadStories();
     list.innerHTML = '<div class="feed-empty">Постов пока нет. Будь первым.</div>';
     
     try {
@@ -1757,7 +1763,8 @@ function closeLogoutModal() {
             }
         }
 
-                async function afterAuth(data) {
+        async function afterAuth(data) {
+                    try{
             currentUserId = data.id;
             currentName = data.name;
             currentAvatar = data.avatarUrl;
@@ -1882,7 +1889,15 @@ function closeLogoutModal() {
                         // Загружаем друзей и заявки для бейджа
             await loadFriends();
             await loadFriendRequests();
-        }
+                    console.log('afterAuth FINISHED OK');
+    } catch (e) {
+        console.error('afterAuth CRASHED:', e);
+        alert('Ошибка: ' + e.message);
+    }
+}
+        
+        
+    
 
         function setChatHeaderAvatar(room) {
     const av = document.getElementById('headerAvatar');
@@ -1969,14 +1984,20 @@ function closeLogoutModal() {
         }
 
         async function loadRooms() {
-            rooms = await api('/api/rooms');
-            renderRooms();
-        }
+    try {
+        rooms = await api('/api/rooms') || [];
+        renderRooms();
+    } catch (e) {
+        console.error('loadRooms error:', e);
+        rooms = [];
+    }
+}
         
          
         async function fillPreviews() {
     try {
         const previews = await api('/api/rooms/previews');
+        if (!previews) return;
         for (const p of previews) {
             const row = document.querySelector(`.chat-row[data-room-id="${p.roomId}"]`);
             if (!row) continue;
@@ -1989,7 +2010,7 @@ function closeLogoutModal() {
                 const t = p.last.sentAt;
                 timeEl.textContent = t ? formatTime(t) : '';
                 row.dataset.time = t ? new Date(t).getTime() : 0;
-                        } else {
+            } else {
                 lastEl.textContent = 'Нет сообщений';
                 row.dataset.time = 0;
             }
@@ -1997,10 +2018,11 @@ function closeLogoutModal() {
             if (typeof p.unread === 'number') unreadCounts[p.roomId] = p.unread;
             applyUnreadBadge(row, p.roomId);
         }
-    } catch (e) { }
+    } catch (e) { 
+        console.error('fillPreviews error:', e);
+    }
     sortChatsList();
 }
-
         async function createRoom() {
             try {
                 const name = document.getElementById('newRoomName').value;
@@ -2229,6 +2251,20 @@ async function markRoomRead(roomId) {
         
         bubble.appendChild(audio);
     }
+
+        // Видео-кружок
+    if (m.videoUrl) {
+        const vid = document.createElement('video');
+        vid.className = 'msg-video-circle';
+        vid.src = m.videoUrl;
+        vid.playsInline = true;
+        vid.loop = true;
+        vid.onclick = () => {
+            if (vid.paused) vid.play(); else vid.pause();
+        };
+        bubble.appendChild(vid);
+    }
+
     if (m.EditedAt) {
         const lbl = document.createElement('span');
         lbl.className = 'msg-edited-label';
@@ -2280,12 +2316,12 @@ async function markRoomRead(roomId) {
 }
 
         async function sendMessage() {
-    alert('sendMessage вызван!');  // ← ДОБАВИТЬ ДЛЯ ДИАГНОСТИКИ
+
     const input = document.getElementById('messageText');
     const text = input.value;
 
     // Проверяем что есть ЧТО отправлять (текст, ИЛИ фото, ИЛИ аудио)
-    if (!text.trim() && !chatImageUrl && !chatImageFile && !currentAudioUrl) return;
+        if (!text.trim() && !chatImageUrl && !chatImageFile && !currentAudioUrl && !currentVideoUrl) return;
     if (!connection || !currentRoomId) return;
 
     // Если в режиме редактирования — отправляем PUT (только текст)
@@ -2323,7 +2359,7 @@ async function markRoomRead(roomId) {
 
     // Аудио уже загружено (currentAudioUrl) или null
     const finalAudioUrl = currentAudioUrl || null;
-
+    const finalVideoUrl = currentVideoUrl || null;
     // Отправляем через SignalR со ВСЕМИ параметрами
     try {
         const replyId = replyTo ? replyTo.id : null;
@@ -2332,7 +2368,8 @@ async function markRoomRead(roomId) {
             text.trim(), 
             replyId, 
             finalImageUrl, 
-            finalAudioUrl  // ← ВАЖНО: 5-й параметр!
+            finalAudioUrl,
+            finalVideoUrl
         );
         
         // Очищаем всё после отправки
@@ -2340,6 +2377,7 @@ async function markRoomRead(roomId) {
         cancelReply();
         removeChatImage();
         currentAudioUrl = null;
+        currentVideoUrl = null;
         updateVoiceButtonVisibility();
     } catch (e) {
         alert('Не удалось отправить: ' + (e.message || 'проверь соединение'));
@@ -3119,31 +3157,23 @@ function updateVoiceButtonVisibility() {
     const input = document.getElementById('messageText');
     const sendBtn = document.getElementById('sendBtn');
     const voiceBtn = document.getElementById('voiceBtn');
+    const videoBtn = document.getElementById('videoBtn');
     
     if (!sendBtn || !voiceBtn) return;
     
-    // Проверяем поддержку микрофона
-    const hasMic = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
-    
-    // Если идёт запись — не трогаем
     const recBar = document.getElementById('inputBarRecording');
     if (recBar && !recBar.classList.contains('hidden')) return;
     
     const hasContent = input && input.value.trim().length > 0;
-    const hasMedia = chatImageFile || chatImageUrl || currentAudioUrl;
-    
-    // Если нет микрофона — всегда показываем ➤
-    if (!hasMic) {
-        voiceBtn.classList.add('hidden');
-        sendBtn.classList.remove('hidden');
-        return;
-    }
+    const hasMedia = chatImageFile || chatImageUrl || currentAudioUrl || currentVideoUrl;
     
     if (!hasContent && !hasMedia) {
         voiceBtn.classList.remove('hidden');
+        if (videoBtn) videoBtn.classList.remove('hidden');
         sendBtn.classList.add('hidden');
     } else {
         voiceBtn.classList.add('hidden');
+        if (videoBtn) videoBtn.classList.add('hidden');
         sendBtn.classList.remove('hidden');
     }
 }
@@ -3165,6 +3195,10 @@ async function toggleRecording() {
 }
 
 async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('🎤 Микрофон работает только по HTTPS!\n\nОткрой сайт через https-ссылку (cloudflared) — тогда голосовые заработают.');
+        return;
+    }
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
@@ -3203,6 +3237,7 @@ async function startRecording() {
         };
         
         mediaRecorder.start();
+        recordingKind = 'audio';
         recordingSeconds = 0;
         
         // Показываем режим записи внутри input-bar
@@ -3237,6 +3272,7 @@ function cancelRecording() {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stream.getTracks().forEach(t => t.stop());
         mediaRecorder = null;
+        recordingKind = null;
     }
     audioChunks = [];
     finishRecording();
@@ -3246,6 +3282,7 @@ function finishRecording() {
     clearInterval(recordingTimer);
     mediaRecorder = null;
     audioChunks = [];
+    recordingKind = null;
     
     // Возвращаем обычный режим input-bar
     document.getElementById('inputBarContent').classList.remove('hidden');
@@ -3256,3 +3293,432 @@ function finishRecording() {
 }
 
 
+// ===== ИСТОРИИ =====
+let storyGroups = [];
+let currentStoryGroup = 0;
+let currentStoryItem = 0;
+let storyTimer = null;
+let storyProgressTimer = null;
+let storyImageFile = null;
+let storyBgColor = '#5b7cfa';
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+}
+
+async function loadStories() {
+    const bar = document.getElementById('storiesBar');
+    if (!bar) return;
+    bar.innerHTML = '';
+
+    try {
+        storyGroups = await api('/api/stories');
+    } catch (e) { storyGroups = []; }
+
+    // Мой кружок — всегда первый
+    const myGroup = storyGroups.find(g => g.isMe);
+    const myCircle = document.createElement('div');
+    myCircle.className = 'story-circle';
+    myCircle.onclick = () => {
+        if (myGroup && myGroup.items.length > 0) openStoryViewer(storyGroups.indexOf(myGroup), 0);
+        else openCreateStoryModal();
+    };
+    const myRing = document.createElement('div');
+    myRing.className = 'story-ring' + (myGroup ? '' : ' none');
+    const myAv = document.createElement('div');
+    myAv.className = 'story-avatar';
+    if (currentAvatar) {
+        const img = document.createElement('img');
+        img.src = currentAvatar;
+        myAv.appendChild(img);
+    } else {
+        myAv.textContent = (currentName || '?').charAt(0).toUpperCase();
+    }
+    myRing.appendChild(myAv);
+    if (!myGroup) {
+        const plus = document.createElement('div');
+        plus.className = 'story-plus';
+        plus.textContent = '+';
+        myRing.appendChild(plus);
+    }
+    myCircle.appendChild(myRing);
+    const myName = document.createElement('div');
+    myName.className = 'story-name';
+    myName.textContent = 'Твоя история';
+    myCircle.appendChild(myName);
+    bar.appendChild(myCircle);
+
+    // Чужие истории
+    storyGroups.filter(g => !g.isMe).forEach(g => {
+        const c = document.createElement('div');
+        c.className = 'story-circle';
+        c.onclick = () => openStoryViewer(storyGroups.indexOf(g), 0);
+        const ring = document.createElement('div');
+        ring.className = 'story-ring';
+        const av = document.createElement('div');
+        av.className = 'story-avatar';
+        if (g.userAvatar) {
+            const img = document.createElement('img');
+            img.src = g.userAvatar;
+            av.appendChild(img);
+        } else {
+            av.textContent = (g.userName || '?').charAt(0).toUpperCase();
+        }
+        ring.appendChild(av);
+        c.appendChild(ring);
+        const nm = document.createElement('div');
+        nm.className = 'story-name';
+        nm.textContent = g.userName;
+        c.appendChild(nm);
+        bar.appendChild(c);
+    });
+}
+
+// ===== ПРОСМОТРЩИК =====
+function openStoryViewer(groupIdx, itemIdx) {
+    currentStoryGroup = groupIdx;
+    currentStoryItem = itemIdx;
+    document.getElementById('storyViewer').classList.remove('hidden');
+    showStoryItem();
+}
+
+function showStoryItem() {
+    clearInterval(storyTimer);
+    clearInterval(storyProgressTimer);
+
+    const g = storyGroups[currentStoryGroup];
+    if (!g) { closeStoryViewer(); return; }
+    const item = g.items[currentStoryItem];
+    if (!item) { closeStoryViewer(); return; }
+
+    // Шапка
+    const av = document.getElementById('storyViewerAvatar');
+    av.innerHTML = '';
+    if (g.userAvatar) {
+        const img = document.createElement('img');
+        img.src = g.userAvatar;
+        av.appendChild(img);
+    } else {
+        av.textContent = (g.userName || '?').charAt(0).toUpperCase();
+    }
+    document.getElementById('storyViewerName').textContent = g.userName;
+    document.getElementById('storyViewerDelete').classList.toggle('hidden', !g.isMe);
+
+    // Прогресс-бары
+    const prog = document.getElementById('storyViewerProgress');
+    prog.innerHTML = '';
+    g.items.forEach((it, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'story-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'story-progress-fill';
+        if (i < currentStoryItem) fill.style.width = '100%';
+        bar.appendChild(fill);
+        prog.appendChild(bar);
+    });
+
+    // Контент
+    const content = document.getElementById('storyViewerContent');
+    content.innerHTML = '';
+    content.style.background = item.imageUrl ? '#000' : item.bgColor;
+    if (item.imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'story-full';
+        img.src = item.imageUrl;
+        content.appendChild(img);
+    }
+        if (item.text) {
+        const t = document.createElement('div');
+        t.className = 'story-viewer-text';
+        t.textContent = item.text;
+        t.style.left = (item.textX ?? 50) + '%';
+        t.style.top = (item.textY ?? 50) + '%';
+        content.appendChild(t);
+    }
+
+    // Анимация текущего прогресса (5 секунд)
+    const fill = prog.children[currentStoryItem].querySelector('.story-progress-fill');
+    const start = Date.now();
+    storyProgressTimer = setInterval(() => {
+        fill.style.width = Math.min(100, (Date.now() - start) / 5000 * 100) + '%';
+    }, 50);
+
+    storyTimer = setTimeout(() => storyNext(), 5000);
+}
+
+function storyNext() {
+    const g = storyGroups[currentStoryGroup];
+    if (currentStoryItem + 1 < g.items.length) {
+        currentStoryItem++;
+        showStoryItem();
+    } else if (currentStoryGroup + 1 < storyGroups.length) {
+        currentStoryGroup++;
+        currentStoryItem = 0;
+        showStoryItem();
+    } else {
+        closeStoryViewer();
+    }
+}
+
+function storyPrev() {
+    if (currentStoryItem > 0) {
+        currentStoryItem--;
+    } else if (currentStoryGroup > 0) {
+        currentStoryGroup--;
+        currentStoryItem = 0;
+    }
+    showStoryItem();
+}
+
+function closeStoryViewer() {
+    clearInterval(storyTimer);
+    clearInterval(storyProgressTimer);
+    document.getElementById('storyViewer').classList.add('hidden');
+}
+
+async function deleteCurrentStory() {
+    const g = storyGroups[currentStoryGroup];
+    const item = g ? g.items[currentStoryItem] : null;
+    if (!item) return;
+    if (!confirm('Удалить эту историю?')) return;
+    try {
+        await api(`/api/stories/${item.id}`, 'DELETE');
+        closeStoryViewer();
+        await loadStories();
+    } catch (e) { alert(e.message); }
+}
+
+// ===== СОЗДАНИЕ ИСТОРИИ =====
+const STORY_COLORS = ['#5b7cfa', '#e74c3c', '#27ae60', '#f39c12', '#8e44ad', '#16a085', '#d35400', '#2c3e50'];
+
+function openCreateStoryModal() {
+    document.getElementById('storyText').value = '';
+    removeStoryImage();
+    storyBgColor = '#5b7cfa';
+    renderStoryColors();
+    document.getElementById('createStoryModal').classList.remove('hidden');
+    storyTextPos = { x: 50, y: 50 };
+    applyStoryTextPos();
+    initStoryTextDrag();
+    updateStoryPreview();
+}
+
+function closeCreateStoryModal() {
+    document.getElementById('createStoryModal').classList.add('hidden');
+}
+
+function updateStoryPreview() {
+    const text = document.getElementById('storyText').value;
+    document.getElementById('storyLiveText').textContent = text || 'Твой текст…';
+    document.getElementById('storyLivePreview').style.background = storyBgColor;
+}
+function applyStoryTextPos() {
+    const t = document.getElementById('storyLiveText');
+    t.style.left = storyTextPos.x + '%';
+    t.style.top = storyTextPos.y + '%';
+}
+
+function initStoryTextDrag() {
+    const preview = document.getElementById('storyLivePreview');
+    const textEl = document.getElementById('storyLiveText');
+    if (!preview || !textEl || textEl.dataset.dragBound) return;
+    textEl.dataset.dragBound = '1';
+
+    const startDrag = (e) => {
+        e.preventDefault();
+        const move = (ev) => {
+            const rect = preview.getBoundingClientRect();
+            const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+            const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+            let x = ((cx - rect.left) / rect.width) * 100;
+            let y = ((cy - rect.top) / rect.height) * 100;
+            storyTextPos = {
+                x: Math.max(5, Math.min(95, x)),
+                y: Math.max(5, Math.min(95, y))
+            };
+            applyStoryTextPos();
+        };
+        const stop = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', stop);
+            document.removeEventListener('touchmove', move);
+            document.removeEventListener('touchend', stop);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', stop);
+        document.addEventListener('touchmove', move);
+        document.addEventListener('touchend', stop);
+    };
+
+    textEl.addEventListener('mousedown', startDrag);
+    textEl.addEventListener('touchstart', startDrag);
+}
+function renderStoryColors() {
+    const wrap = document.getElementById('storyColors');
+    wrap.innerHTML = '';
+    STORY_COLORS.forEach(c => {
+        const b = document.createElement('button');
+        b.className = 'story-color' + (c === storyBgColor ? ' active' : '');
+        b.style.background = c;
+        b.onclick = () => { storyBgColor = c; renderStoryColors(); updateStoryPreview(); };
+        wrap.appendChild(b);
+    });
+}
+
+function previewStoryImage() {
+    const input = document.getElementById('storyImageInput');
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой (макс 5 МБ)'); input.value = ''; return; }
+    storyImageFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = document.getElementById('storyPreviewImg');
+        img.src = e.target.result;
+        img.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+function removeStoryImage() {
+    storyImageFile = null;
+    const img = document.getElementById('storyPreviewImg');
+    img.classList.add('hidden');
+    img.src = '';
+}
+
+        async function publishStory() {
+    const text = document.getElementById('storyText').value.trim();
+    if (!text && !storyImageFile) { alert('Добавь текст или фото'); return; }
+
+    try {
+        let imageUrl = null;
+        if (storyImageFile) {
+            const fd = new FormData();
+            fd.append('image', storyImageFile);
+            const res = await fetch('/api/postimage', { method: 'POST', body: fd, credentials: 'same-origin' });
+            if (!res.ok) throw new Error('Не удалось загрузить фото');
+            const data = await res.json();
+            imageUrl = data.imageUrl;
+        }
+        await api('/api/stories', 'POST', {
+            text: text,
+            imageUrl: imageUrl,
+            bgColor: storyBgColor,
+            textX: storyTextPos.x,
+            textY: storyTextPos.y
+        });
+        closeCreateStoryModal();
+        await loadStories();
+    } catch (e) { alert(e.message); }
+}
+
+
+// ===== ВИДЕО-КРУЖКИ =====
+function stopActiveRecording() {
+    if (recordingKind === 'video') stopVideoRecording();
+    else stopRecording();
+}
+
+function cancelActiveRecording() {
+    if (recordingKind === 'video') cancelVideoRecording();
+    else cancelRecording();
+}
+
+async function toggleVideoRecording() {
+    if (videoRecorder && videoRecorder.state === 'recording') {
+        stopVideoRecording();
+    } else {
+        await startVideoRecording();
+    }
+}
+
+async function startVideoRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('🎥 Камера работает только по HTTPS!\n\nОткрой сайт через https-ссылку (cloudflared) — тогда кружки заработают.');
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoChunks = [];
+        videoRecorder = new MediaRecorder(stream);
+        recordingKind = 'video';
+        
+        videoRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) videoChunks.push(e.data);
+        };
+        
+        videoRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+            
+            if (videoBlob.size < 5000) {
+                finishVideoRecording();
+                return;
+            }
+            
+            try {
+                const fd = new FormData();
+                fd.append('video', videoBlob, 'circle.webm');
+                const res = await fetch('/api/chatvideo', {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) throw new Error('Не удалось загрузить видео');
+                const data = await res.json();
+                currentVideoUrl = data.videoUrl;
+                finishVideoRecording();
+                await sendMessage();
+            } catch (e) {
+                alert(e.message);
+                finishVideoRecording();
+            }
+        };
+        
+        videoRecorder.start();
+        recordingSeconds = 0;
+        
+        document.getElementById('inputBarContent').classList.add('hidden');
+        document.getElementById('inputBarRecording').classList.remove('hidden');
+        
+        updateRecordingTime();
+        recordingTimer = setInterval(() => {
+            recordingSeconds++;
+            updateRecordingTime();
+            if (recordingSeconds >= 30) stopVideoRecording(); // кружки макс 30 сек
+        }, 1000);
+    } catch (e) {
+        alert('Нет доступа к камере: ' + e.message);
+    }
+}
+
+function stopVideoRecording() {
+    if (videoRecorder && videoRecorder.state === 'recording') {
+        videoRecorder.stop();
+    }
+}
+
+function cancelVideoRecording() {
+    if (videoRecorder && videoRecorder.state === 'recording') {
+        videoRecorder.stream.getTracks().forEach(t => t.stop());
+        videoRecorder = null;
+    }
+    videoChunks = [];
+    finishVideoRecording();
+}
+
+function finishVideoRecording() {
+    clearInterval(recordingTimer);
+    videoRecorder = null;
+    videoChunks = [];
+    recordingKind = null;
+    
+    document.getElementById('inputBarContent').classList.remove('hidden');
+    document.getElementById('inputBarRecording').classList.add('hidden');
+    
+    updateVoiceButtonVisibility();
+}

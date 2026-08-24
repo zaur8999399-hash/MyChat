@@ -1,19 +1,14 @@
 public class User
 {
+    public int Id { get; set; }
+    public string Login { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string Status { get; set; } = "";
     public DateTime? LastLoginDate { get; set; }
     public int Streak { get; set; } = 0;
     public int BestStreak { get; set; } = 0;
-    public int Id { get; set; }
-
-    public string Login { get; set; } = string.Empty;
-
-    public string Name { get; set; } = string.Empty;
-
-    public string PasswordHash { get; set; } = string.Empty;
-
-    public string? AvatarUrl { get; set; }
-    
-    public string Status { get; set; } = "";
 }
 
 public class Room
@@ -32,25 +27,22 @@ public class Room
 
 public class Message
 {
-    public string? AudioUrl { get; set; }
+    public int Id { get; set; }
+    public int RoomId { get; set; }
+    public Room? Room { get; set; }
+    public int UserId { get; set; }
+    public User? User { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public DateTime SentAt { get; set; } = DateTime.UtcNow;
+    public DateTime? EditedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    public bool IsRead { get; set; } = false;
+    public int? ReplyToId { get; set; }
     public int? ForwardedFromId { get; set; }
     public string? ForwardedFromName { get; set; }
-    public bool IsRead { get; set; } = false;
-    public int Id { get; set; }
     public string? ImageUrl { get; set; }
-    public int RoomId { get; set; }
-
-    public Room? Room { get; set; }
-
-    public int UserId { get; set; }
-
-    public User? User { get; set; }
-
-    public string Text { get; set; } = string.Empty;
-    public int? ReplyToId { get; set; }
-    public DateTime? EditedAt { get; set; }
-    public DateTime SentAt { get; set; } = DateTime.UtcNow;
+    public string? AudioUrl { get; set; }
+    public string? VideoUrl { get; set; }   // ← ВОТ ОНО! Добавлено!
 }
 
 public class Post
@@ -150,3 +142,18 @@ public class Follow
     public int TargetId { get; set; }     // на кого подписан
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public class Story
+{
+    public double TextX { get; set; } = 50;
+    public double TextY { get; set; } = 50;
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User? User { get; set; }
+    public string Text { get; set; } = "";
+    public string? ImageUrl { get; set; }
+    public string BgColor { get; set; } = "#5b7cfa";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public record CreateStoryDto(string Text, string? ImageUrl, string? BgColor, double? TextX, double? TextY);

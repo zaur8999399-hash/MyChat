@@ -100,31 +100,31 @@
         <div class="input-bar" id="inputBar">
             <!-- Обычный режим: ввод текста -->
             <div class="input-bar-content" id="inputBarContent">
-    <button type="button" class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Прикрепить фото">📎</button>
-    <input id="messageText"
-           placeholder="Сообщение"
-           oninput="onTyping(); updateVoiceButtonVisibility();"
-           onkeydown="if (event.key === 'Enter') sendMessage()">
-    <div class="disappearing-indicator hidden" id="disappearingIndicator" onclick="openDisappearingModal()" title="Исчезающие сообщения">
-        <span>⏳</span>
-        <span id="disappearingIndicatorText"></span>
-    </div>
-    <button type="button" class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
-    <button type="button" class="voice-btn hidden" id="voiceBtn" title="Голосовое сообщение" onclick="toggleRecording()">🎤</button>
-    <button type="button" class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
-</div>
-            
-            <!-- Режим записи голосового -->
+                <button type="button" class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Прикрепить фото">📎</button>
+                <input id="messageText"
+                       placeholder="Сообщение"
+                       oninput="onTyping(); updateVoiceButtonVisibility();"
+                       onkeydown="if (event.key === 'Enter') sendMessage()">
+                <div class="disappearing-indicator hidden" id="disappearingIndicator" onclick="openDisappearingModal()" title="Исчезающие сообщения">
+                    <span>⏳</span>
+                    <span id="disappearingIndicatorText"></span>
+                </div>
+                <button type="button" class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
+                <button type="button" class="voice-btn hidden" id="videoBtn" title="Видео-кружок" onclick="toggleVideoRecording()">🎥</button>
+                <button type="button" class="voice-btn hidden" id="voiceBtn" title="Голосовое сообщение" onclick="toggleRecording()">🎤</button>
+                <button type="button" class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+            </div>
+
+            <!-- Режим записи (голос или видео) -->
             <div class="input-bar-recording hidden" id="inputBarRecording">
+                <button class="recording-cancel" onclick="cancelActiveRecording()" title="Отменить">✕</button>
                 <span class="recording-dot"></span>
                 <span class="recording-text">Запись...</span>
                 <span class="recording-time" id="recordingTime">0:00</span>
-                <button class="recording-cancel" onclick="cancelRecording()" title="Отменить">✕</button>
-                <button class="recording-stop" onclick="stopRecording()" title="Отправить">🎤</button>
+                <button class="recording-stop" onclick="stopActiveRecording()" title="Отправить">⏹</button>
             </div>
         </div>
     </div>
-
     <input type="file" id="avatarInput" accept="image/png,image/jpeg" class="hidden" onchange="uploadAvatar()">
 
     <script src="/signalr.min.js"></script>
@@ -287,7 +287,7 @@
     </svg>
 </button>
     </div>
-    
+    <div class="stories-bar" id="storiesBar"></div>
     <div id="feedList" class="feed-list"></div>
 </div>
 
@@ -496,7 +496,7 @@
                 <div id="userProfileStatus" class="profile-status hidden"></div>
             </div>
         </div>
-                <div class="profile-stats">
+        <div class="profile-stats">
             <div class="stat-item">
                 <div class="stat-number" id="userProfilePostsCount">0</div>
                 <div class="stat-label">Постов</div>
@@ -506,6 +506,9 @@
                 <div class="stat-label">Друзей</div>
             </div>
         </div>
+        <div class="profile-divider"></div>
+        <div class="profile-posts-grid" id="userProfileGrid"></div>
+    </div>
 </div>
 <div class="profile-divider"></div>
 <div class="profile-posts-grid" id="userProfileGrid"></div>
@@ -604,6 +607,47 @@
         <div class="disappearing-options" id="disappearingOptions"></div>
     </div>
 </div>
+<!-- СОЗДАНИЕ ИСТОРИИ -->
+<div id="createStoryModal" class="status-modal-overlay hidden">
+    <div class="create-post-modal story-modal">
+        <div class="create-post-header">
+            <h3>Новая история</h3>
+            <button onclick="closeCreateStoryModal()" class="close-modal-btn">✕</button>
+        </div>
+        
+        <!-- Живой превью как телефон -->
+        <div class="story-preview-wrap">
+            <div class="story-live-preview" id="storyLivePreview">
+                <img id="storyPreviewImg" class="story-live-img hidden" src="">
+                <div class="story-live-text" id="storyLiveText">Твой текст…</div>
+            </div>
+        </div>
+        
+        <textarea id="storyText" placeholder="Текст истории…" maxlength="200" oninput="updateStoryPreview()"></textarea>
+        
+        <div class="story-colors" id="storyColors"></div>
+        
+        <div class="story-modal-buttons">
+            <input type="file" id="storyImageInput" accept="image/*" class="hidden" onchange="previewStoryImage()">
+            <button onclick="document.getElementById('storyImageInput').click()" class="story-add-photo">📷 Фото</button>
+            <button onclick="removeStoryImage()" class="story-add-photo">✕ Убрать фото</button>
+        </div>
+        <button onclick="publishStory()" class="publish-btn">Опубликовать</button>
+    </div>
+</div>
 
+<!-- ПРОСМОТР ИСТОРИЙ -->
+<div id="storyViewer" class="story-viewer hidden">
+    <div class="story-viewer-progress" id="storyViewerProgress"></div>
+    <div class="story-viewer-header">
+        <div class="story-viewer-avatar" id="storyViewerAvatar"></div>
+        <div class="story-viewer-name" id="storyViewerName"></div>
+        <button class="story-viewer-delete hidden" id="storyViewerDelete" onclick="deleteCurrentStory()">🗑️</button>
+        <button class="story-viewer-close" onclick="closeStoryViewer()">✕</button>
+    </div>
+    <div class="story-viewer-content" id="storyViewerContent"></div>
+    <button class="story-nav-left" onclick="storyPrev()">‹</button>
+    <button class="story-nav-right" onclick="storyNext()">›</button>
+</div>
 </body>
 </html>

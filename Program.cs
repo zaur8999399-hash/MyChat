@@ -45,13 +45,25 @@ using (var scope = app.Services.CreateScope())
     }
 
 db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS Stories (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Text TEXT NOT NULL DEFAULT '',
+    ImageUrl TEXT,
+    BgColor TEXT NOT NULL DEFAULT '#5b7cfa',
+    CreatedAt TEXT NOT NULL
+);");
+
+db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS Follows (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     FollowerId INTEGER NOT NULL,
     TargetId INTEGER NOT NULL,
     CreatedAt TEXT NOT NULL
 );");
-
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN VideoUrl TEXT;"); } catch { }
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Stories ADD COLUMN TextX REAL NOT NULL DEFAULT 50;"); } catch { }
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Stories ADD COLUMN TextY REAL NOT NULL DEFAULT 50;"); } catch { }
 try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN LastLoginDate TEXT;"); } catch { }
 try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Streak INTEGER NOT NULL DEFAULT 0;"); } catch { }
 try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN BestStreak INTEGER NOT NULL DEFAULT 0;"); } catch { }
@@ -398,6 +410,33 @@ app.MapPost("/api/chataudio", async (HttpContext ctx, ClaimsPrincipal principal)
     }
 
     return Results.Ok(new { audioUrl = "/audio/" + name });
+}).RequireAuthorization();
+
+// Загрузка видео-кружка в чат
+app.MapPost("/api/chatvideo", async (HttpContext ctx, ClaimsPrincipal principal) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files.GetFile("video");
+    if (file == null) return Results.BadRequest(new { error = "Нет файла" });
+
+    if (file.Length > 20 * 1024 * 1024)
+        return Results.BadRequest(new { error = "Файл слишком большой (максимум 20 МБ)" });
+
+    var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "videos");
+    Directory.CreateDirectory(dir);
+
+    var name = $"circle_{userId}_{DateTime.Now.Ticks}.webm";
+    var path = Path.Combine(dir, name);
+
+    using (var stream = new FileStream(path, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    return Results.Ok(new { videoUrl = "/videos/" + name });
 }).RequireAuthorization();
 
 app.MapPost("/api/avatar", async (HttpContext context, AppDb db) =>
@@ -1596,6 +1635,78 @@ app.MapGet("/api/user/{id:int}/followinfo", async (int id, ClaimsPrincipal princ
 
     return Results.Ok(new { followers, following, iFollow });
 }).RequireAuthorization(); 
+
+// ===== ИСТОРИИ =====
+
+// Создать историю
+app.MapPost("/api/stories", async (ClaimsPrincipal principal, AppDb db, CreateStoryDto dto) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(dto.Text) && string.IsNullOrEmpty(dto.ImageUrl))
+        return Results.BadRequest(new { error = "История пустая" });
+
+    var story = new Story
+    {
+        UserId = userId,
+        Text = (dto.Text ?? "").Trim(),
+        ImageUrl = dto.ImageUrl,
+        BgColor = string.IsNullOrEmpty(dto.BgColor) ? "#5b7cfa" : dto.BgColor,
+        TextX = dto.TextX ?? 50,
+        TextY = dto.TextY ?? 50
+    };
+    db.Set<Story>().Add(story);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { id = story.Id });
+    
+}).RequireAuthorization();
+
+// Лента историй (живут 24 часа)
+app.MapGet("/api/stories", async (ClaimsPrincipal principal, AppDb db) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var cutoff = DateTime.UtcNow.AddHours(-24);
+    var stories = await db.Set<Story>()
+        .Where(s => s.CreatedAt > cutoff)
+        .OrderBy(s => s.Id)
+        .ToListAsync();
+
+    var result = new List<object>();
+    foreach (var g in stories.GroupBy(s => s.UserId)
+        .OrderByDescending(g => g.Key == userId)   // моя история первая
+        .ThenByDescending(g => g.Max(s => s.Id)))
+    {
+        var user = await db.Users.FindAsync(g.Key);
+        result.Add(new
+        {
+            userId = g.Key,
+            userName = user?.Name ?? "",
+            userAvatar = user?.AvatarUrl,
+            isMe = g.Key == userId,
+            items = g.Select(s => new { s.Id, s.Text, s.ImageUrl, s.BgColor, s.TextX, s.TextY, createdAt = s.CreatedAt }).ToList()
+            
+        });
+    }
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+// Удалить свою историю
+app.MapDelete("/api/stories/{id:int}", async (int id, ClaimsPrincipal principal, AppDb db) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var s = await db.Set<Story>().FindAsync(id);
+    if (s == null) return Results.NotFound(new { error = "История не найдена" });
+    if (s.UserId != userId) return Results.BadRequest(new { error = "Это не твоя история" });
+
+    db.Set<Story>().Remove(s);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 

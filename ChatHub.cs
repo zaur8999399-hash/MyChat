@@ -75,10 +75,10 @@ public class ChatHub : Hub
         var user = await _db.Users.FindAsync(userId);
         await Clients.Group(RoomName(roomId)).SendAsync("typing", userId, user?.Name ?? "");
     }
-    public async Task SendMessage(int roomId, string text, int? replyToId = null, string? imageUrl = null, string? audioUrl = null)
+    public async Task SendMessage(int roomId, string text, int? replyToId = null, string? imageUrl = null, string? audioUrl = null, string? videoUrl = null)
 {
     // Разрешаем отправку если есть ИЛИ текст, ИЛИ фото, ИЛИ аудио
-    if (string.IsNullOrWhiteSpace(text) && string.IsNullOrEmpty(imageUrl) && string.IsNullOrEmpty(audioUrl)) return;
+        if (string.IsNullOrWhiteSpace(text) && string.IsNullOrEmpty(imageUrl) && string.IsNullOrEmpty(audioUrl) && string.IsNullOrEmpty(videoUrl)) return;
     text = (text ?? "").Trim();
     if (text.Length > 1000) text = text[..1000];
 
@@ -101,7 +101,8 @@ public class ChatHub : Hub
             ? DateTime.UtcNow.AddSeconds(room.DisappearingSeconds)
             : null,
         ImageUrl = imageUrl,
-        AudioUrl = audioUrl  
+        AudioUrl = audioUrl,
+        VideoUrl = videoUrl
     };
 
     _db.Messages.Add(message);
@@ -137,6 +138,7 @@ public class ChatHub : Hub
         expiresAt = message.ExpiresAt,
         imageUrl = message.ImageUrl,
         audioUrl = message.AudioUrl,
+        videoUrl = message.VideoUrl
     });
 
     // Обновляем список чатов у участников личного чата
