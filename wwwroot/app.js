@@ -18,6 +18,9 @@
         let recordingTimer = null;
         let recordingSeconds = 0;
         let currentAudioUrl = null;
+        let currentStreak = 0;
+        let currentBestStreak = 0;
+        let currentFeedTab = 'foryou';
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
@@ -164,6 +167,15 @@ async function fillProfile() {
         addBtn.classList.remove('hidden');
     }
 
+    // Стрик
+    const streakBar = document.getElementById('streakBar');
+    if (currentStreak > 0) {
+        document.getElementById('streakCount').textContent = currentStreak;
+        document.getElementById('streakBest').textContent = '🏆 ' + currentBestStreak;
+        streakBar.classList.remove('hidden');
+    } else {
+        streakBar.classList.add('hidden');
+    }
     // Загружаем посты пользователя
     await loadUserPosts();
 }
@@ -398,7 +410,7 @@ let emojiSlot = 1;
 
 async function loadFeed() {
     const list = document.getElementById('feedList');
-                list.innerHTML = '<div class="feed-empty">Постов пока нет. Будь первым.</div>';
+    list.innerHTML = '<div class="feed-empty">Постов пока нет. Будь первым.</div>';
     
     try {
         const posts = await api('/api/posts');
@@ -418,6 +430,13 @@ async function loadFeed() {
     } catch (e) {
         list.innerHTML = '<div class="feed-empty">Не удалось загрузить ленту</div>';
     }
+}
+
+function switchFeedTab(tab) {
+    currentFeedTab = tab;
+    document.getElementById('tabForYou').classList.toggle('active', tab === 'foryou');
+    document.getElementById('tabFollowing').classList.toggle('active', tab === 'following');
+    loadFeed();
 }
 
 function createPostCard(post) {
@@ -823,11 +842,11 @@ async function renderUserCard(u, context) {
         });
     }
 
-        // Кнопки по контексту
+    // Кнопки
     const btns = document.getElementById('userCardButtons');
     btns.innerHTML = '';
 
-    // Определяем статус дружбы
+    // Статус дружбы
     const status = await getFriendStatus(u.id);
 
     if (status === 'none') {
@@ -850,7 +869,7 @@ async function renderUserCard(u, context) {
     } else if (status === 'incoming') {
         const addBtn = document.createElement('button');
         addBtn.className = 'add-friend-btn secondary';
-        addBtn.textContent = 'Ответить на заявку в разделе Друзья';
+        addBtn.textContent = 'Ответь в разделе Друзья';
         addBtn.disabled = true;
         btns.appendChild(addBtn);
     } else if (status === 'friend') {
@@ -861,6 +880,7 @@ async function renderUserCard(u, context) {
         btns.appendChild(addBtn);
     }
 
+    // Кнопки действий
     if (context === 'private') {
         const b = document.createElement('button');
         b.className = 'user-card-btn primary';
@@ -967,11 +987,11 @@ async function renderUserProfile(u) {
         });
     }
 
-    // Кнопка "Добавить в друзья" в шапке профиля
+    // Кнопки: друзья + написать (контейнер очищается — ДУБЛЕЙ НЕ БУДЕТ)
+    const actions = document.getElementById('userProfileActions');
+    actions.innerHTML = '';
+
     const status = await getFriendStatus(u.id);
-    const friendBtnContainer = document.createElement('div');
-    friendBtnContainer.className = 'profile-actions';
-    friendBtnContainer.style.marginTop = '12px';
 
     if (status === 'none') {
         const addBtn = document.createElement('button');
@@ -987,13 +1007,13 @@ async function renderUserProfile(u) {
                 alert(e.message);
             }
         };
-        friendBtnContainer.appendChild(addBtn);
+        actions.appendChild(addBtn);
     } else if (status === 'incoming') {
         const addBtn = document.createElement('button');
         addBtn.className = 'action-btn';
-        addBtn.textContent = 'Ответить в разделе Друзья';
+        addBtn.textContent = 'Ответь в разделе Друзья';
         addBtn.disabled = true;
-        friendBtnContainer.appendChild(addBtn);
+        actions.appendChild(addBtn);
     } else if (status === 'friend') {
         const addBtn = document.createElement('button');
         addBtn.className = 'action-btn';
@@ -1010,13 +1030,15 @@ async function renderUserProfile(u) {
                 }
             });
         };
-        friendBtnContainer.appendChild(addBtn);
+        actions.appendChild(addBtn);
     }
 
-    // Вставляем кнопки сразу под логином
-    const loginEl = document.getElementById('userProfileLogin');
-    if (loginEl && loginEl.parentNode) {
-        loginEl.parentNode.insertBefore(friendBtnContainer, loginEl.nextSibling);
+    if (u.id !== currentUserId) {
+        const msgBtn = document.createElement('button');
+        msgBtn.className = 'action-btn blue';
+        msgBtn.textContent = '✉️ Написать';
+        msgBtn.onclick = () => startDirectWith(u.id);
+        actions.appendChild(msgBtn);
     }
 }
 
@@ -1740,7 +1762,8 @@ function closeLogoutModal() {
             currentName = data.name;
             currentAvatar = data.avatarUrl;
             currentStatus = data.status || '';
-
+            currentStreak = data.streak || 0;
+            currentBestStreak = data.bestStreak || 0;
             currentUserLogin = localStorage.getItem('myLogin') || '';
 
             console.log('AUTH DATA:', data);
@@ -2257,6 +2280,7 @@ async function markRoomRead(roomId) {
 }
 
         async function sendMessage() {
+    alert('sendMessage вызван!');  // ← ДОБАВИТЬ ДЛЯ ДИАГНОСТИКИ
     const input = document.getElementById('messageText');
     const text = input.value;
 
@@ -3050,52 +3074,6 @@ function closeDisappearingModal() {
 }
 
 
-// ===== ОТПРАВКА + LONG PRESS (чистый вариант) =====
-(function setupSendButton() {
-    const sendBtn = document.getElementById('sendBtn');
-    if (!sendBtn) return;
-    
-    let holdTimer = null;
-    let holdTriggered = false;
-    
-    // Обычный клик = отправка
-    sendBtn.addEventListener('click', (e) => {
-        if (holdTriggered) {
-            e.preventDefault();
-            e.stopPropagation();
-            holdTriggered = false;
-            return;
-        }
-        sendMessage();
-    });
-    
-    // Long press (600мс) = модалка исчезающих
-    const startHold = (e) => {
-        if (e.type === 'touchstart') e.preventDefault();
-        holdTriggered = false;
-        sendBtn.classList.add('holding');
-        holdTimer = setTimeout(() => {
-            holdTriggered = true;
-            sendBtn.classList.remove('holding');
-            if (navigator.vibrate) navigator.vibrate(30);
-            openDisappearingModal();
-        }, 600);
-    };
-    
-    const endHold = () => {
-        sendBtn.classList.remove('holding');
-        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-    };
-    
-    sendBtn.addEventListener('mousedown', startHold);
-    sendBtn.addEventListener('mouseup', endHold);
-    sendBtn.addEventListener('mouseleave', endHold);
-    sendBtn.addEventListener('touchstart', startHold);
-    sendBtn.addEventListener('touchend', endHold);
-})();
-
-
-
 // ===== ФОТО В ЧАТЕ =====
 function previewChatImage() {
     const input = document.getElementById('chatImageInput');
@@ -3144,13 +3122,22 @@ function updateVoiceButtonVisibility() {
     
     if (!sendBtn || !voiceBtn) return;
     
-    // Если идёт запись — не трогаем кнопки (они скрыты через inputBarRecording)
+    // Проверяем поддержку микрофона
+    const hasMic = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    
+    // Если идёт запись — не трогаем
     const recBar = document.getElementById('inputBarRecording');
     if (recBar && !recBar.classList.contains('hidden')) return;
     
-    // Микрофон показываем когда поле ввода ПУСТОЕ и нет фото и нет аудио
     const hasContent = input && input.value.trim().length > 0;
     const hasMedia = chatImageFile || chatImageUrl || currentAudioUrl;
+    
+    // Если нет микрофона — всегда показываем ➤
+    if (!hasMic) {
+        voiceBtn.classList.add('hidden');
+        sendBtn.classList.remove('hidden');
+        return;
+    }
     
     if (!hasContent && !hasMedia) {
         voiceBtn.classList.remove('hidden');
@@ -3267,3 +3254,5 @@ function finishRecording() {
     // Обновляем видимость кнопок
     updateVoiceButtonVisibility();
 }
+
+

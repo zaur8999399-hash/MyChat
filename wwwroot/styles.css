@@ -2545,3 +2545,109 @@
     gap: 10px;
     width: 100%;
 }
+
+/* ===== СТРИКИ И ПОДПИСКИ ===== */
+.streak-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin: 12px 16px 0; padding: 10px 16px;
+    background: linear-gradient(90deg, #fff3e0, #ffe0b2);
+    border-radius: 14px;
+}
+.streak-fire { font-size: 22px; }
+.streak-count { font-size: 20px; font-weight: 800; color: #e65100; }
+.streak-label { font-size: 13px; color: #8a8a8e; flex: 1; }
+.streak-best { font-size: 13px; font-weight: 700; color: #b26a00; }
+
+/* ===== КРАСИВЫЕ КНОПКИ ДЕЙСТВИЙ ===== */
+.profile-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    padding: 11px 22px;
+    border: none;
+    border-radius: 12px;
+    background: #e8eaf2;
+    color: #1c1c1e;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.action-btn:hover {
+    background: #dcdfe9;
+    transform: translateY(-1px);
+}
+.action-btn.blue {
+    background: linear-gradient(135deg, #5b7cfa, #7b5bfa);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(91, 124, 250, 0.4);
+}
+.action-btn.blue:hover {
+    box-shadow: 0 6px 18px rgba(91, 124, 250, 0.55);
+    transform: translateY(-2px);
+}
+.action-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Кнопка друзей в мини-карточке */
+.add-friend-btn {
+    width: 100%;
+    padding: 11px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+    background: #e8eaf2;
+    color: #8a8a8e;
+}
+.add-friend-btn.primary {
+    background: linear-gradient(135deg, #5b7cfa, #7b5bfa);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(91, 124, 250, 0.4);
+}
+.add-friend-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(91, 124, 250, 0.55);
+}
+.add-friend-btn:disabled {
+    cursor: default;
+    transform: none !important;
+}
+
+/* Кнопки в карточке пользователя */
+.user-card-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+    background: #e8eaf2;
+    color: #1c1c1e;
+}
+.user-card-btn.primary {
+    background: linear-gradient(135deg, #5b7cfa, #7b5bfa);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(91, 124, 250, 0.4);
+}
+.user-card-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(91, 124, 250, 0.55);
+}
+.user-card-btn.secondary:hover {
+    background: #dcdfe9;
+}

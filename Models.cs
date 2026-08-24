@@ -1,5 +1,8 @@
 public class User
 {
+    public DateTime? LastLoginDate { get; set; }
+    public int Streak { get; set; } = 0;
+    public int BestStreak { get; set; } = 0;
     public int Id { get; set; }
 
     public string Login { get; set; } = string.Empty;
@@ -139,3 +142,11 @@ public class MessageReaction
 }
 
 public record ReactMessageDto(string Emoji);
+
+public class Follow
+{
+    public int Id { get; set; }
+    public int FollowerId { get; set; }   // кто подписан
+    public int TargetId { get; set; }     // на кого подписан
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

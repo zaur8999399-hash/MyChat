@@ -29,6 +29,26 @@
       "PackagePath": "staticwebassets\\audio\\voice_1_639231037264121743.webm"
     },
     {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231042376894574.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231042376894574.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231043111750183.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231043111750183.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_1_639231044322869747.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_1_639231044322869747.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_2_639231223595765634.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_2_639231223595765634.webm"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\audio\\voice_2_639231235936827633.webm",
+      "PackagePath": "staticwebassets\\audio\\voice_2_639231235936827633.webm"
+    },
+    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\avatars\\1.png",
       "PackagePath": "staticwebassets\\avatars\\1.png"
     },
@@ -51,6 +71,10 @@
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_1_639230999747988237.jpg",
       "PackagePath": "staticwebassets\\chatimages\\chat_1_639230999747988237.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\chatimages\\chat_4_639231242201454409.png",
+      "PackagePath": "staticwebassets\\chatimages\\chat_4_639231242201454409.png"
     },
     {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\icon.png",

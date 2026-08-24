@@ -1,4 +1,19 @@
-// Пустой service worker — ничего не кэширует, просто существует
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', () => self.clients.claim());
-// fetch не перехватываем — браузер сам ходит в сеть
+// sw.js — всегда берёт свежую версию с сервера
+self.addEventListener('install', () => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys()
+            .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+            .then(() => self.clients.claim())
+    );
+});
+
+self.addEventListener('fetch', (event) => {
+    // Сначала сеть, кэш только если оффлайн
+    event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
+    );
+});

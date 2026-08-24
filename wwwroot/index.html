@@ -100,19 +100,19 @@
         <div class="input-bar" id="inputBar">
             <!-- Обычный режим: ввод текста -->
             <div class="input-bar-content" id="inputBarContent">
-                <button class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Прикрепить фото">📎</button>
-                <input id="messageText"
-                       placeholder="Сообщение"
-                       oninput="onTyping(); updateVoiceButtonVisibility();"
-                       onkeydown="if (event.key === 'Enter') sendMessage()">
-                <div class="disappearing-indicator hidden" id="disappearingIndicator" onclick="openDisappearingModal()" title="Исчезающие сообщения">
-                    <span>⏳</span>
-                    <span id="disappearingIndicatorText"></span>
-                </div>
-                <button class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
-                <button class="voice-btn hidden" id="voiceBtn" title="Голосовое сообщение" onclick="toggleRecording()">🎤</button>
-                <button class="send-btn hidden" id="sendBtn" onclick="sendMessage()">➤</button>
-            </div>
+    <button type="button" class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Прикрепить фото">📎</button>
+    <input id="messageText"
+           placeholder="Сообщение"
+           oninput="onTyping(); updateVoiceButtonVisibility();"
+           onkeydown="if (event.key === 'Enter') sendMessage()">
+    <div class="disappearing-indicator hidden" id="disappearingIndicator" onclick="openDisappearingModal()" title="Исчезающие сообщения">
+        <span>⏳</span>
+        <span id="disappearingIndicatorText"></span>
+    </div>
+    <button type="button" class="poll-btn hidden" id="pollBtn" onclick="openCreatePollModal()" title="Создать опрос">📊</button>
+    <button type="button" class="voice-btn hidden" id="voiceBtn" title="Голосовое сообщение" onclick="toggleRecording()">🎤</button>
+    <button type="button" class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+</div>
             
             <!-- Режим записи голосового -->
             <div class="input-bar-recording hidden" id="inputBarRecording">
@@ -229,7 +229,7 @@
         </div>
 
         <!-- Счётчики -->
-        <div class="profile-stats">
+                <div class="profile-stats">
             <div class="stat-item">
                 <div class="stat-number" id="profilePostsCount">0</div>
                 <div class="stat-label">Постов</div>
@@ -239,11 +239,16 @@
                 <div class="stat-label">Реакций</div>
             </div>
             <div class="stat-item">
-                 <div class="stat-number" id="profileFriendsCount">0</div>
-                 <div class="stat-label">Друзей</div>
-             </div>
+                <div class="stat-number" id="profileFriendsCount">0</div>
+                <div class="stat-label">Друзей</div>
+            </div>
         </div>
-
+                    <div class="streak-bar hidden" id="streakBar">
+            <span class="streak-fire">🔥</span>
+            <span class="streak-count" id="streakCount">0</span>
+            <span class="streak-label">дней подряд</span>
+            <span class="streak-best" id="streakBest">🏆 0</span>
+        </div>
         <div class="profile-divider"></div>
 
         
@@ -282,6 +287,7 @@
     </svg>
 </button>
     </div>
+    
     <div id="feedList" class="feed-list"></div>
 </div>
 
@@ -486,18 +492,20 @@
             <div class="profile-info">
                 <h1 class="profile-name-large" id="userProfileName"></h1>
                 <div class="profile-login-large" id="userProfileLogin"></div>
+                <div class="profile-actions" id="userProfileActions"></div>
                 <div id="userProfileStatus" class="profile-status hidden"></div>
             </div>
         </div>
-        <div class="profile-stats">
-    <div class="stat-item">
-        <div class="stat-number" id="userProfilePostsCount">0</div>
-        <div class="stat-label">Постов</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-number" id="userProfileFriendsCount">0</div>
-        <div class="stat-label">Друзей</div>
-    </div>
+                <div class="profile-stats">
+            <div class="stat-item">
+                <div class="stat-number" id="userProfilePostsCount">0</div>
+                <div class="stat-label">Постов</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="userProfileFriendsCount">0</div>
+                <div class="stat-label">Друзей</div>
+            </div>
+        </div>
 </div>
 <div class="profile-divider"></div>
 <div class="profile-posts-grid" id="userProfileGrid"></div>

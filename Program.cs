@@ -44,6 +44,18 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
+db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS Follows (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    FollowerId INTEGER NOT NULL,
+    TargetId INTEGER NOT NULL,
+    CreatedAt TEXT NOT NULL
+);");
+
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN LastLoginDate TEXT;"); } catch { }
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Streak INTEGER NOT NULL DEFAULT 0;"); } catch { }
+try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN BestStreak INTEGER NOT NULL DEFAULT 0;"); } catch { }
+
     db.Database.ExecuteSqlRaw(@"
 CREATE TABLE IF NOT EXISTS MessageReactions (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,6 +154,19 @@ static List<int> ParseMembers(string members) =>
         ? new List<int>()
         : members.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
 
+static void UpdateStreak(User user)
+{
+    var today = DateTime.UtcNow.Date;
+    var last = user.LastLoginDate?.Date;
+
+    if (last == today) return;              // сегодня уже засчитан
+    if (last == today.AddDays(-1)) user.Streak += 1;   // зашёл подряд — огонь растёт
+    else user.Streak = 1;                   // пропустил день — сгорел, начнём заново
+
+    if (user.Streak > user.BestStreak) user.BestStreak = user.Streak;
+    user.LastLoginDate = DateTime.UtcNow;
+}
+
 static string GetRole(string roles, int userId)
 {
     if (string.IsNullOrEmpty(roles)) return "";
@@ -205,6 +230,8 @@ app.MapPost("/api/register", async (
     db.Users.Add(user);
     await db.SaveChangesAsync();
 
+    UpdateStreak(user);
+    await db.SaveChangesAsync();
     await SignInUser(context, user);
 
     return Results.Ok(new { id = user.Id, name = user.Name, avatarUrl = user.AvatarUrl });
@@ -230,6 +257,9 @@ app.MapPost("/api/login", async (
         == PasswordVerificationResult.Failed)
         return Results.BadRequest(new { error = "Неверный логин или пароль." });
 
+    UpdateStreak(user);
+    await db.SaveChangesAsync();
+
     await SignInUser(context, user);
 
     return Results.Ok(new { id = user.Id, name = user.Name, avatarUrl = user.AvatarUrl });
@@ -249,12 +279,18 @@ app.MapGet("/api/me", async (ClaimsPrincipal principal, AppDb db) =>
     var user = await db.Users.FirstOrDefaultAsync(u => u.Login == login);
     if (user == null) return Results.Unauthorized();
 
+    var streakBefore = user.Streak;
+    UpdateStreak(user);
+    if (user.Streak != streakBefore) await db.SaveChangesAsync();
+
     return Results.Ok(new {
         id = user.Id,
         login = user.Login,
         name = user.Name,
         avatarUrl = user.AvatarUrl,
-        status = user.Status ?? ""
+        status = user.Status ?? "",
+        streak = user.Streak,
+        bestStreak = user.BestStreak,
     });
 }).RequireAuthorization();
 
@@ -588,13 +624,30 @@ app.MapPost("/api/posts", async (ClaimsPrincipal principal, AppDb db, CreatePost
     return Results.Ok(new { id = post.Id });
 }).RequireAuthorization();
 
-app.MapGet("/api/posts", async (ClaimsPrincipal principal, AppDb db) =>
+app.MapGet("/api/posts", async (ClaimsPrincipal principal, AppDb db, string? feed) =>
 {
     var login = principal.FindFirstValue("login");
     var me = await db.Users.FirstOrDefaultAsync(u => u.Login == login);
     var myId = me?.Id ?? 0;
 
-    var posts = await db.Posts.OrderByDescending(p => p.CreatedAt).Take(50).ToListAsync();
+    List<Post> posts;
+    if (feed == "following")
+    {
+        var followingIds = await db.Set<Follow>()
+            .Where(f => f.FollowerId == myId)
+            .Select(f => f.TargetId)
+            .ToListAsync();
+        followingIds.Add(myId); // свои посты тоже видны в «Подписках»
+        posts = await db.Posts
+            .Where(p => followingIds.Contains(p.UserId))
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(50)
+            .ToListAsync();
+    }
+    else
+    {
+        posts = await db.Posts.OrderByDescending(p => p.CreatedAt).Take(50).ToListAsync();
+    }
     var result = new List<object>();
 
     foreach (var post in posts)
@@ -732,7 +785,9 @@ app.MapGet("/api/user/{id:int}/profile", async (int id, ClaimsPrincipal principa
             count1 = reactions.Count(r => r.Emoji == post.Emoji1),
             count2 = reactions.Count(r => r.Emoji == post.Emoji2),
             myReaction = reactions.FirstOrDefault(r => r.UserId == myId)?.Emoji ?? "",
-            comments = commentsCount
+            comments = commentsCount,
+            streak = user.Streak,
+            bestStreak = user.BestStreak,
         });
     }
 
@@ -1493,6 +1548,54 @@ app.MapPost("/api/messages/{id:int}/expire", async (int id, AppDb db, IHubContex
     await hub.Clients.Group($"room-{roomId}").SendAsync("messagedeleted", id, roomId);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+
+// ===== ПОДПИСКИ =====
+
+// Подписаться
+app.MapPost("/api/user/{id:int}/follow", async (int id, ClaimsPrincipal principal, AppDb db) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+    if (userId == id) return Results.BadRequest(new { error = "Нельзя подписаться на себя" });
+
+    var target = await db.Users.FindAsync(id);
+    if (target == null) return Results.NotFound(new { error = "Пользователь не найден" });
+
+    var existing = await db.Set<Follow>().FirstOrDefaultAsync(f => f.FollowerId == userId && f.TargetId == id);
+    if (existing != null) return Results.BadRequest(new { error = "Вы уже подписаны" });
+
+    db.Set<Follow>().Add(new Follow { FollowerId = userId, TargetId = id });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Отписаться
+app.MapPost("/api/user/{id:int}/unfollow", async (int id, ClaimsPrincipal principal, AppDb db) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var f = await db.Set<Follow>().FirstOrDefaultAsync(x => x.FollowerId == userId && x.TargetId == id);
+    if (f != null)
+    {
+        db.Set<Follow>().Remove(f);
+        await db.SaveChangesAsync();
+    }
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Инфа о подписках пользователя
+app.MapGet("/api/user/{id:int}/followinfo", async (int id, ClaimsPrincipal principal, AppDb db) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    var followers = await db.Set<Follow>().CountAsync(f => f.TargetId == id);
+    var following = await db.Set<Follow>().CountAsync(f => f.FollowerId == id);
+    var iFollow = await db.Set<Follow>().AnyAsync(f => f.FollowerId == userId && f.TargetId == id);
+
+    return Results.Ok(new { followers, following, iFollow });
+}).RequireAuthorization(); 
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 
