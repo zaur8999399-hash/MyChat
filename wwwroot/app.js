@@ -3733,28 +3733,87 @@ function finishVideoRecording() {
 // ===== УВЕДОМЛЕНИЯ =====
 let audioCtx = null;
 
+// Инициализируем AudioContext при первом клике (обход блокировки браузера)
+document.addEventListener('click', function initAudio() {
+    if (!audioCtx) {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('✅ AudioContext инициализирован');
+        } catch (e) {
+            console.error('❌ AudioContext не работает:', e);
+        }
+    }
+}, { once: true });
+
 function playMessageSound() {
+    console.log('🔊 playMessageSound вызван');
+    
+    // Пробуем свой звук
+    const files = [
+        '/sounds/notification.mp3',
+        '/sounds/notification.m4a',
+        '/sounds/notification.wav',
+        '/sounds/notification.webm'
+    ];
+
+    function tryPlay(i) {
+        if (i >= files.length) {
+            console.log('❌ Свой звук не найден, играю стандартный');
+            beepDefault();
+            return;
+        }
+        console.log(`🔍 Пробую ${files[i]}`);
+        const a = new Audio(files[i]);
+        a.volume = 0.8;
+        a.play()
+            .then(() => console.log(`✅ Звук играет: ${files[i]}`))
+            .catch(() => {
+                console.log(`⚠️ ${files[i]} не сработал`);
+                tryPlay(i + 1);
+            });
+    }
+
+    tryPlay(0);
+}
+
+function beepDefault() {
+    console.log('🔔 beepDefault вызван');
     try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const ctx = audioCtx;
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
+        if (!audioCtx) {
+            console.log('⚠️ AudioContext не инициализирован, создаю...');
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
         o.type = 'sine';
-        o.frequency.setValueAtTime(880, ctx.currentTime);
-        o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-        g.gain.setValueAtTime(0.2, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        o.frequency.setValueAtTime(880, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.15);
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
         o.connect(g);
-        g.connect(ctx.destination);
+        g.connect(audioCtx.destination);
         o.start();
-        o.stop(ctx.currentTime + 0.2);
-    } catch { }
+        o.stop(audioCtx.currentTime + 0.2);
+        console.log('✅ Стандартный звук сыгран');
+    } catch (e) {
+        console.error('❌ beepDefault упал:', e);
+    }
 }
 
 function showBrowserNotification(title, body) {
-    if (!('Notification' in window)) return;
+    console.log(`🔔 Показываю уведомление: ${title} — ${body}`);
+    if (!('Notification' in window)) {
+        console.log('❌ Notification API не поддерживается');
+        return;
+    }
+    console.log(`📋 Permission: ${Notification.permission}`);
     if (Notification.permission === 'granted') {
-        try { new Notification(title, { body: body, icon: '/icon.png' }); } catch { }
+        try { 
+            new Notification(title, { body: body, icon: '/icon.png' });
+            console.log('✅ Уведомление показано');
+        } catch (e) {
+            console.error('❌ Ошибка показа уведомления:', e);
+        }
     }
 }
 
@@ -3763,16 +3822,19 @@ async function enableNotifications() {
         alert('Твой браузер не поддерживает уведомления 😔');
         return;
     }
+    console.log('📋 Запрашиваю разрешение на уведомления...');
     const perm = await Notification.requestPermission();
+    console.log(`📋 Результат: ${perm}`);
     if (perm === 'granted') {
         alert('Уведомления включены! 🔔 Теперь ты не пропустишь сообщения!');
         new Notification('Мини-чат 🔔', { body: 'Уведомления работают!' });
     } else {
-        alert('Без разрешений уведомления не включить 🙈');
+        alert('Без разрешений уведомления не включить 🙈\n\nРазрешение: ' + perm);
     }
 }
 
 function updateTitleBadge() {
     const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    console.log(`🔢 updateTitleBadge: всего непрочитанных = ${total}`);
     document.title = total > 0 ? `(${total}) Мини-чат` : 'Мини-чат';
 }

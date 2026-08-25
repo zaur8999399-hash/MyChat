@@ -149,6 +149,10 @@
       "PackagePath": "staticwebassets\\signalr.min.js"
     },
     {
+      "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\sounds\\notification.mp3",
+      "PackagePath": "staticwebassets\\sounds\\notification.mp3"
+    },
+    {
       "Id": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\styles.css",
       "PackagePath": "staticwebassets\\styles.css"
     },

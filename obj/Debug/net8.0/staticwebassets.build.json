@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "dnT0tODdz4u/TI0wxu8jqaWBhoIyJL/YffncNv65KJA=",
+  "Hash": "sMR28lyBTLrtLOfffLEOaIL5D7kGfUKa8XZ09ycyv4c=",
   "Source": "MyChat",
   "BasePath": "_content/MyChat",
   "Mode": "Default",
@@ -718,6 +718,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\signalr.min.js"
+    },
+    {
+      "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\sounds\\notification.mp3",
+      "SourceId": "MyChat",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\",
+      "BasePath": "_content/MyChat",
+      "RelativePath": "sounds/notification.mp3",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\sounds\\notification.mp3"
     },
     {
       "Identity": "C:\\Users\\Неисправимый\\MyChat\\wwwroot\\styles.css",
