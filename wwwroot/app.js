@@ -30,8 +30,31 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js');
         }
+// ===== ТЁМНАЯ ТЕМА =====
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeUI();
+}
 
+function loadTheme() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') {
+        document.body.classList.add('dark');
+    }
+    updateThemeUI();
+}
+
+function updateThemeUI() {
+    const isDark = document.body.classList.contains('dark');
+    const sw = document.getElementById('themeSwitch');
+    if (sw) sw.checked = isDark;
+}
+
+// Загружаем тему при старте
+loadTheme();
  function showView(name) {
+    document.body.dataset.view = name;
     document.getElementById('registerView').classList.add('hidden');
     document.getElementById('loginView').classList.add('hidden');
     document.getElementById('chatView').classList.add('hidden');
@@ -108,12 +131,22 @@ function openSection(name) {
         return;
     }
 
-    if (name === 'profile') {
+        if (name === 'profile') {
         showView('section');
         document.getElementById('sectionTitle').textContent = 'Мой профиль';
         document.getElementById('profileScreen').classList.remove('hidden');
+        document.getElementById('settingsScreen').classList.add('hidden');
         document.getElementById('genericSection').classList.add('hidden');
         fillProfile();
+        return;
+    }
+
+    if (name === 'settings') {
+        showView('section');
+        document.getElementById('sectionTitle').textContent = '⚙️ Настройки';
+        document.getElementById('settingsScreen').classList.remove('hidden');
+        document.getElementById('profileScreen').classList.add('hidden');
+        document.getElementById('genericSection').classList.add('hidden');
         return;
     }
 

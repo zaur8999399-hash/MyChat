@@ -1,10 +1,10 @@
 {
-  "name": "Мини-чат",
-  "short_name": "Чат",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#5b7cfa",
+"name": "Мини-чат",
+    "short_name": "Мини-чат",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0e0e10",
+    "theme_color": "#5b7cfa",
   "icons": [
     {
       "src": "/icon.png",
