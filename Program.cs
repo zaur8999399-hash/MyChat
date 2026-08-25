@@ -428,7 +428,9 @@ app.MapPost("/api/chatvideo", async (HttpContext ctx, ClaimsPrincipal principal)
     var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "videos");
     Directory.CreateDirectory(dir);
 
-    var name = $"circle_{userId}_{DateTime.Now.Ticks}.webm";
+    var ext = Path.GetExtension(file.FileName).ToLower();
+    if (ext != ".mp4" && ext != ".webm") ext = ".webm";
+    var name = $"circle_{userId}_{DateTime.Now.Ticks}{ext}";
     var path = Path.Combine(dir, name);
 
     using (var stream = new FileStream(path, FileMode.Create))
