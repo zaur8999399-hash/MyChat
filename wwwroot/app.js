@@ -82,7 +82,7 @@ loadTheme();
     if (name === 'groups') document.getElementById('groupsView').classList.remove('hidden');
     if (name === 'group') document.getElementById('groupView').classList.remove('hidden');
     if (name === 'friends') document.getElementById('friendsView').classList.remove('hidden');
-    
+    if (bn) bn.classList.toggle('hidden', name === 'chat' || name === 'register' || name === 'login');
     // Сохраняем текущий экран
     localStorage.setItem('lastView', name);
 }
@@ -3684,7 +3684,8 @@ async function startVideoRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         videoChunks = [];
-        videoRecorder = new MediaRecorder(stream);
+        const mime = MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4';
+        videoRecorder = new MediaRecorder(stream, { mimeType: mime });
         recordingKind = 'video';
         
         videoRecorder.ondataavailable = (e) => {
@@ -3693,7 +3694,7 @@ async function startVideoRecording() {
         
         videoRecorder.onstop = async () => {
             stream.getTracks().forEach(t => t.stop());
-            const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+            const videoBlob = new Blob(videoChunks, { type: mime });
             
             if (videoBlob.size < 5000) {
                 finishVideoRecording();
@@ -3702,7 +3703,7 @@ async function startVideoRecording() {
             
             try {
                 const fd = new FormData();
-                fd.append('video', videoBlob, 'circle.webm');
+                fd.append('video', videoBlob, mime.includes('mp4') ? 'circle.mp4' : 'circle.webm');
                 const res = await fetch('/api/chatvideo', {
                     method: 'POST',
                     body: fd,
