@@ -687,6 +687,7 @@ async function createPost() {
     try {
         let imageUrl = null;
         if (postImageFile) {
+                    if (!chatImageFile || chatImageFile.size === 0) { alert('📎 Файл пустой: ' + (chatImageFile ? chatImageFile.size : 'null')); return; }
             const fd = new FormData();
             fd.append('image', postImageFile);
             const res = await fetch('/api/postimage', {
