@@ -626,6 +626,25 @@ body[data-view="chat"] {
     height: 100dvh;
 }
 
-/* ===== УБИРАЕМ БЕЛУЮ ПОЛОСУ ВНИЗУ ===== */
-body[data-view="chat"] { background: var(--bg-card); }
-#chatView { height: 100dvh; }
+/* ===== iOS KEYBOARD v3: поднимается только поле ввода ===== */
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-card); /* страховка: даже если будет щель — того же цвета */
+}
+body {
+    --kb: 0px;
+}
+#chatView {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+}
+#inputBar {
+    margin-bottom: var(--kb);
+    transition: margin-bottom 0.15s ease-out;
+}
+/* Страховка: safe-area для iPhone с челкой */
+.input-bar {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}

@@ -4023,29 +4023,4 @@ window.previewStoryImage = function () {
     }
 })();
 
-// ===== iOS KEYBOARD FIX v2 (без белой полосы) =====
-(function () {
-    if (!window.visualViewport) return;
-    const vv = window.visualViewport;
-
-    function fix() {
-        const chat = document.getElementById('chatView');
-        if (!chat || chat.classList.contains('hidden')) return;
-        const input = document.getElementById('messageText');
-        const focused = document.activeElement === input;
-        // Клавиатура реально открыта = фокус на поле И высота заметно меньше экрана
-        const kbOpen = focused && vv.height < window.innerHeight - 100;
-        if (kbOpen) {
-            chat.style.height = vv.height + 'px';   // чат сжимается, шапка на месте
-        } else {
-            chat.style.height = '';                  // клавиатура закрыта = чат во весь экран
-        }
-        window.scrollTo(0, 0);
-    }
-
-    vv.addEventListener('resize', fix);
-    document.addEventListener('focusin', (e) => {
-        if (e.target && e.target.id === 'messageText') setTimeout(fix, 100);
-    });
-    document.addEventListener('focusout', () => setTimeout(fix, 100));
-})();
+м
