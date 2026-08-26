@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,7 +26,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddAuthorization();
-
+builder.Services.AddDataProtection()
+    .SetApplicationName("DoveChat")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "keys")));
 var app = builder.Build();
 
 Directory.CreateDirectory(
@@ -405,7 +408,9 @@ app.MapPost("/api/chataudio", async (HttpContext ctx, ClaimsPrincipal principal)
     var dir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "audio");
     Directory.CreateDirectory(dir);
 
-    var name = $"voice_{userId}_{DateTime.Now.Ticks}.webm";
+    var ext = Path.GetExtension(file.FileName).ToLower();
+    if (ext != ".mp3" && ext != ".wav" && ext != ".m4a" && ext != ".mp4" && ext != ".webm") ext = ".webm";
+    var name = $"voice_{userId}_{DateTime.Now.Ticks}{ext}";
     var path = Path.Combine(dir, name);
 
     using (var stream = new FileStream(path, FileMode.Create))
@@ -594,7 +599,7 @@ app.MapGet("/api/rooms/{id:int}/messages", async (int id, AppDb db, ClaimsPrinci
         m.Id, m.RoomId, m.UserId,
         Name = m.User!.Name,
         AvatarUrl = m.User.AvatarUrl,
-        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,m.ForwardedFromId, m.ForwardedFromName,m.ImageUrl,m.AudioUrl,
+        m.Text, m.SentAt, m.IsRead, m.ReplyToId,m.EditedAt,m.ForwardedFromId, m.ForwardedFromName,m.ImageUrl,m.AudioUrl,m.VideoUrl,
         reactions = reactions.Where(r => r.MessageId == m.Id)
             .GroupBy(r => r.Emoji)
             .Select(g => new { emoji = g.Key, count = g.Count(), mine = g.Any(x => x.UserId == myId)  })

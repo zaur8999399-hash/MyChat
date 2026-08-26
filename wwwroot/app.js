@@ -54,7 +54,6 @@ function updateThemeUI() {
 // Загружаем тему при старте
 loadTheme();
  function showView(name) {
-    document.body.dataset.view = name;
     document.getElementById('registerView').classList.add('hidden');
     document.getElementById('loginView').classList.add('hidden');
     document.getElementById('chatView').classList.add('hidden');
@@ -64,27 +63,32 @@ loadTheme();
     document.getElementById('userProfileView').classList.add('hidden');
     document.getElementById('groupsView').classList.add('hidden');
     document.getElementById('groupView').classList.add('hidden');
-        document.getElementById('friendsView').classList.add('hidden');
+    document.getElementById('friendsView').classList.add('hidden');
 
-        if (name === 'register') {
-        document.getElementById('registerView').classList.remove('hidden');
-        return; // не сохраняем в localStorage
-    }
-    if (name === 'login') {
-        document.getElementById('loginView').classList.remove('hidden');
-        return; // не сохраняем в localStorage
-    }
-    if (name === 'chat') document.getElementById('chatView').classList.remove('hidden');
-    if (name === 'section') document.getElementById('sectionView').classList.remove('hidden');
-    if (name === 'chatsList') document.getElementById('chatsListView').classList.remove('hidden');
-    if (name === 'feed') document.getElementById('feedView').classList.remove('hidden');
-    if (name === 'userProfile') document.getElementById('userProfileView').classList.remove('hidden');
-    if (name === 'groups') document.getElementById('groupsView').classList.remove('hidden');
-    if (name === 'group') document.getElementById('groupView').classList.remove('hidden');
-    if (name === 'friends') document.getElementById('friendsView').classList.remove('hidden');
-    if (bn) bn.classList.toggle('hidden', name === 'chat' || name === 'register' || name === 'login');
-    // Сохраняем текущий экран
+    if (name === 'register') document.getElementById('registerView').classList.remove('hidden');
+    else if (name === 'login') document.getElementById('loginView').classList.remove('hidden');
+    else if (name === 'chat') document.getElementById('chatView').classList.remove('hidden');
+    else if (name === 'section') document.getElementById('sectionView').classList.remove('hidden');
+    else if (name === 'chatsList') document.getElementById('chatsListView').classList.remove('hidden');
+    else if (name === 'feed') document.getElementById('feedView').classList.remove('hidden');
+    else if (name === 'userProfile') document.getElementById('userProfileView').classList.remove('hidden');
+    else if (name === 'groups') document.getElementById('groupsView').classList.remove('hidden');
+    else if (name === 'group') document.getElementById('groupView').classList.remove('hidden');
+    else if (name === 'friends') document.getElementById('friendsView').classList.remove('hidden');
+
     localStorage.setItem('lastView', name);
+    document.body.dataset.view = name;
+
+    // Нижняя навигация
+    const bnEl = document.getElementById('bottomNav');
+    if (bnEl) {
+        if (name === 'chat' || name === 'register' || name === 'login') bnEl.classList.add('hidden');
+        else bnEl.classList.remove('hidden');
+    }
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+    const navMap = { feed: 'navFeed', chatsList: 'navChats', chat: 'navChats', groups: 'navGroups', group: 'navGroups', friends: 'navFriends', section: 'navProfile', userProfile: 'navProfile' };
+    const navId = navMap[name];
+    if (navId) { const el = document.getElementById(navId); if (el) el.classList.add('active'); }
 }
          
         
@@ -3242,7 +3246,8 @@ async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
+        const amime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        mediaRecorder = new MediaRecorder(stream, { mimeType: amime });
         
         mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) audioChunks.push(e.data);
@@ -3250,7 +3255,7 @@ async function startRecording() {
         
         mediaRecorder.onstop = async () => {
             stream.getTracks().forEach(t => t.stop());
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioBlob = new Blob(audioChunks, { type: amime });
             
             if (audioBlob.size < 5000) {
                 finishRecording();
@@ -3259,7 +3264,7 @@ async function startRecording() {
             
             try {
                 const fd = new FormData();
-                fd.append('audio', audioBlob, 'voice.webm');
+                fd.append('audio', audioBlob, amime.includes('mp4') ? 'voice.mp4' : 'voice.webm');
                 const res = await fetch('/api/chataudio', {
                     method: 'POST',
                     body: fd,
