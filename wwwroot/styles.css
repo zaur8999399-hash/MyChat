@@ -639,3 +639,15 @@ html, body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
+
+/* ===== ЧЕЛКА iPHONE: шапки ниже статус-бара ===== */
+.chats-list-header,
+.feed-header,
+.section-header {
+    padding-top: calc(12px + env(safe-area-inset-top));
+}
+.menu-header {
+    padding-top: calc(16px + env(safe-area-inset-top));
+}
+.story-viewer-progress { top: calc(10px + env(safe-area-inset-top)); }
+.story-viewer-header { top: calc(22px + env(safe-area-inset-top)); }
