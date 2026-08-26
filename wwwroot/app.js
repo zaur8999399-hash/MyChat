@@ -3872,3 +3872,17 @@ function updateTitleBadge() {
     console.log(`🔢 updateTitleBadge: всего непрочитанных = ${total}`);
     document.title = total > 0 ? `(${total}) Мини-чат` : 'Мини-чат';
 }
+
+// ===== ЖЕЛЕЗОБЕТОННАЯ НАВИГАЦИЯ =====
+setInterval(() => {
+    const bn = document.getElementById('bottomNav');
+    if (!bn) return;
+    const regOpen = !document.getElementById('registerView').classList.contains('hidden');
+    const logOpen = !document.getElementById('loginView').classList.contains('hidden');
+    const chatOpen = !document.getElementById('chatView').classList.contains('hidden');
+    if (regOpen || logOpen || chatOpen) {
+        bn.classList.add('hidden');
+    } else {
+        bn.classList.remove('hidden');
+    }
+}, 500);
