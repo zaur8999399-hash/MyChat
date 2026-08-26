@@ -159,7 +159,11 @@ async Task SignInUser(HttpContext context, User user)
     await context.SignInAsync(
         CookieAuthenticationDefaults.AuthenticationScheme,
         principal,
-        new AuthenticationProperties { IsPersistent = true });
+        new AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30)
+        });
 }
 static List<int> ParseMembers(string members) =>
     string.IsNullOrEmpty(members)
