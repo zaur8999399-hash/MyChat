@@ -604,11 +604,7 @@ body.dark .slider:before { background: #fff; }
     .profile-screen, .settings-screen { padding-bottom: 70px; }
 }
 
-/* ===== iOS KEYBOARD: ФИНАЛ v2 ===== */
-html, body {
-    height: var(--app-height, 100%);
-    overflow: hidden;
-}
+
 #chatsListView, .feed-list, .friends-list, .groups-content,
 .profile-screen, .settings-screen {
     overflow-y: auto;
@@ -621,4 +617,25 @@ input, textarea { font-size: 16px !important; }
 /* Страховка: safe-area для iPhone с челкой */
 .input-bar {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}
+
+/* ===== ИСПРАВЛЕНИЕ ВЫСОТЫ ===== */
+html, body {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    background: var(--bg-main);
+}
+
+/* Все экраны занимают всю высоту */
+#feedView, #friendsView, #groupsView, #chatsListView, 
+#sectionView, #userProfileView, #groupView {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+#feedList, .friends-list, .groups-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
