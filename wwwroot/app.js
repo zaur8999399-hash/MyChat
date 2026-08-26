@@ -3989,7 +3989,7 @@ window.previewStoryImage = function () {
     });
 };
 
-// ===== iOS KEYBOARD: ФИНАЛ =====
+// ===== iOS KEYBOARD: ФИНАЛ v2 =====
 (function () {
     function setHeight() {
         const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -3997,9 +3997,11 @@ window.previewStoryImage = function () {
     }
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', setHeight);
-        window.visualViewport.addEventListener('scroll', setHeight);
+        window.visualViewport.addEventListener('scroll', () => {
+            window.scrollTo(0, 0);
+            setHeight();
+        });
     }
     window.addEventListener('orientationchange', () => setTimeout(setHeight, 100));
     setHeight();
 })();
-
