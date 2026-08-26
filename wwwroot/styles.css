@@ -619,3 +619,9 @@ html, body {
 input, textarea {
     font-size: 16px !important; /* убирает зум при фокусе на iOS */
 }
+
+/* ===== iOS KEYBOARD: шапка на месте, чат едет вверх ===== */
+body[data-view="chat"] {
+    overflow: hidden;
+    height: 100dvh;
+}

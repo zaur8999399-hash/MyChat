@@ -4022,3 +4022,31 @@ window.previewStoryImage = function () {
         });
     }
 })();
+
+// ===== iOS KEYBOARD FIX: чат вверх, шапка на месте =====
+(function () {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+
+    function fixKeyboard() {
+        const chat = document.getElementById('chatView');
+        if (!chat) return;
+        const isOpen = !chat.classList.contains('hidden');
+        if (isOpen) {
+            // Чат сжимается ровно до видимой области над клавиатурой
+            chat.style.height = vv.height + 'px';
+        } else {
+            chat.style.height = '';
+        }
+        // Не даём странице уползать вверх
+        window.scrollTo(0, 0);
+    }
+
+    vv.addEventListener('resize', fixKeyboard);
+    vv.addEventListener('scroll', fixKeyboard);
+
+    document.addEventListener('focusin', (e) => {
+        if (e.target && e.target.id === 'messageText') setTimeout(fixKeyboard, 100);
+    });
+    document.addEventListener('focusout', () => setTimeout(fixKeyboard, 100));
+})();
