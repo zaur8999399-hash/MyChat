@@ -625,3 +625,7 @@ body[data-view="chat"] {
     overflow: hidden;
     height: 100dvh;
 }
+
+/* ===== УБИРАЕМ БЕЛУЮ ПОЛОСУ ВНИЗУ ===== */
+body[data-view="chat"] { background: var(--bg-card); }
+#chatView { height: 100dvh; }
