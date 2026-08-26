@@ -2392,7 +2392,11 @@ async function markRoomRead(roomId) {
                 body: fd,
                 credentials: 'same-origin'
             });
-            if (!res.ok) throw new Error('Не удалось загрузить фото');
+                        if (!res.ok) {
+                let msg = 'Не удалось загрузить фото';
+                try { const d = await res.json(); if (d.error) msg = d.error; } catch { }
+                throw new Error(msg);
+            }
             const data = await res.json();
             finalImageUrl = data.imageUrl;
         } catch (e) {
@@ -3890,4 +3894,20 @@ setInterval(() => {
     } else {
         bn.classList.remove('hidden');
     }
-}, 500);
+}, 500);// ===== КОНВЕРТАЦИЯ HEIC (iPhone) В JPG =====
+function convertHeicIfNeeded(file, onDone) {
+    if (!/heic|heif/i.test(file.type) && !/\.(heic|heif)$/i.test(file.name)) { onDone(file); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 1600;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) { const k = Math.min(max / w, max / h); w = Math.round(w * k); h = Math.round(h * k); }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob((b) => { URL.revokeObjectURL(url); onDone(new File([b], 'photo.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); alert('Не удалось прочитать фото'); };
+    img.src = url;
+}
