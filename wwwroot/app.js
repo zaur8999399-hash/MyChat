@@ -3988,3 +3988,37 @@ window.previewStoryImage = function () {
         });
     });
 };
+
+// ===== iOS KEYBOARD SCROLL FIX =====
+(function() {
+    let originalScrollY = 0;
+    let isKeyboardOpen = false;
+
+    document.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            originalScrollY = window.scrollY;
+            isKeyboardOpen = true;
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            isKeyboardOpen = false;
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.body.scrollTop = 0;
+                document.documentElement.scrollTop = 0;
+            }, 50);
+        }
+    });
+
+    // Фикс для iOS safe-area при поднятой клавиатуре
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            if (isKeyboardOpen) {
+                document.documentElement.style.setProperty('--keyboard-height', 
+                    (window.innerHeight - window.visualViewport.height) + 'px');
+            }
+        });
+    }
+})();
