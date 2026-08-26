@@ -3911,3 +3911,77 @@ function convertHeicIfNeeded(file, onDone) {
     img.onerror = () => { URL.revokeObjectURL(url); alert('Не удалось прочитать фото'); };
     img.src = url;
 }
+
+// ===== ФИНАЛЬНЫЙ ФИКС ФОТО (iPhone + кнопка отправки) =====
+function heicToJpeg(file, onDone) {
+    const isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+    if (!isHeic) { onDone(file); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const max = 1600;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) { const k = Math.min(max / w, max / h); w = Math.round(w * k); h = Math.round(h * k); }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob((b) => { URL.revokeObjectURL(url); onDone(new File([b], 'photo.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); onDone(file); };
+    img.src = url;
+}
+
+window.previewChatImage = function () {
+    const input = document.getElementById('chatImageInput');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Файл слишком большой (макс 8 МБ)'); return; }
+    heicToJpeg(file, (f) => {
+        chatImageFile = f;
+        chatImageUrl = null;
+        const r = new FileReader();
+        r.onload = (e) => {
+            document.getElementById('chatPreviewImg').src = e.target.result;
+            document.getElementById('chatImagePreview').classList.remove('hidden');
+            if (typeof updateVoiceButtonVisibility === 'function') updateVoiceButtonVisibility();
+        };
+        r.readAsDataURL(f);
+    });
+};
+
+window.previewPostImage = function () {
+    const input = document.getElementById('postImageInput');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой (макс 5 МБ)'); return; }
+    heicToJpeg(file, (f) => {
+        postImageFile = f;
+        const r = new FileReader();
+        r.onload = (e) => {
+            document.getElementById('previewImg').src = e.target.result;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            document.getElementById('addPhotoBtn').classList.add('hidden');
+        };
+        r.readAsDataURL(f);
+    });
+};
+
+window.previewStoryImage = function () {
+    const input = document.getElementById('storyImageInput');
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой (макс 5 МБ)'); return; }
+    heicToJpeg(file, (f) => {
+        storyImageFile = f;
+        const r = new FileReader();
+        r.onload = (e) => {
+            const img = document.getElementById('storyPreviewImg');
+            img.src = e.target.result;
+            img.classList.remove('hidden');
+        };
+        r.readAsDataURL(f);
+    });
+};
