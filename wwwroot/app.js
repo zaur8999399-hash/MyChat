@@ -687,7 +687,6 @@ async function createPost() {
     try {
         let imageUrl = null;
         if (postImageFile) {
-                    if (!chatImageFile || chatImageFile.size === 0) { alert('📎 Файл пустой: ' + (chatImageFile ? chatImageFile.size : 'null')); return; }
             const fd = new FormData();
             fd.append('image', postImageFile);
             const res = await fetch('/api/postimage', {
@@ -3861,19 +3860,33 @@ function showBrowserNotification(title, body) {
     }
 }
 
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+}
 async function enableNotifications() {
-    if (!('Notification' in window)) {
-        alert('Твой браузер не поддерживает уведомления 😔');
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('Твой браузер не поддерживает пуш-уведомления 😔');
         return;
     }
-    console.log('📋 Запрашиваю разрешение на уведомления...');
     const perm = await Notification.requestPermission();
-    console.log(`📋 Результат: ${perm}`);
-    if (perm === 'granted') {
-        alert('Уведомления включены! 🔔 Теперь ты не пропустишь сообщения!');
-        new Notification('Мини-чат 🔔', { body: 'Уведомления работают!' });
-    } else {
-        alert('Без разрешений уведомления не включить 🙈\n\nРазрешение: ' + perm);
+    if (perm !== 'granted') { alert('Без разрешения уведомления не включить 🙈'); return; }
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const vapid = await (await fetch('/api/push/vapid')).json();
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid.publicKey) });
+        }
+        const j = sub.toJSON();
+        await api('/api/push/subscribe', 'POST', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+        alert('Уведомления включены! 🔔 Теперь пуши приходят даже с закрытым приложением!');
+    } catch (e) {
+        alert('Не удалось включить пуш: ' + e.message);
     }
 }
 

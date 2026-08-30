@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.DataProtection;
+using WebPush;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -127,6 +128,14 @@ CREATE TABLE IF NOT EXISTS PollVotes (
     PollId INTEGER NOT NULL,
     OptionId INTEGER NOT NULL,
     UserId INTEGER NOT NULL
+);");
+db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS PushSubscriptions (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Endpoint TEXT NOT NULL,
+    P256dh TEXT NOT NULL,
+    Auth TEXT NOT NULL
 );");
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN AudioUrl TEXT;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE Messages ADD COLUMN ImageUrl TEXT;"); } catch { }
@@ -1721,6 +1730,34 @@ app.MapDelete("/api/stories/{id:int}", async (int id, ClaimsPrincipal principal,
 
 app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 
+// ===== VAPID ключи для пушей =====
+var vapidPath = Path.Combine(Directory.GetCurrentDirectory(), "vapid.json");
+if (File.Exists(vapidPath))
+{
+    var vj = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(vapidPath))!;
+    PushSender.VapidPublic = vj["publicKey"];
+    PushSender.VapidPrivate = vj["privateKey"];
+}
+else
+{
+   var vk = VapidHelper.GenerateVapidKeys();
+PushSender.VapidPublic = vk.PublicKey;
+PushSender.VapidPrivate = vk.PrivateKey;
+File.WriteAllText(vapidPath, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { { "publicKey", PushSender.VapidPublic }, { "privateKey", PushSender.VapidPrivate } }));
+}
+PushSender.Provider = app.Services;
 
+app.MapGet("/api/push/vapid", () => Results.Ok(new { publicKey = PushSender.VapidPublic }));
+
+app.MapPost("/api/push/subscribe", async (ClaimsPrincipal principal, AppDb db, PushSubscribeDto dto) =>
+{
+    var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+    var existing = await db.Set<PushSubscription>().FirstOrDefaultAsync(s => s.Endpoint == dto.Endpoint);
+    if (existing != null) { existing.UserId = userId; existing.P256dh = dto.P256dh; existing.Auth = dto.Auth; }
+    else db.Set<PushSubscription>().Add(new PushSubscription { UserId = userId, Endpoint = dto.Endpoint, P256dh = dto.P256dh, Auth = dto.Auth });
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 app.Run("http://0.0.0.0:5000");

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Collections.Concurrent;
+using WebPush;
 
 public class ChatHub : Hub
 {
@@ -149,6 +150,23 @@ public class ChatHub : Hub
             await Clients.Group($"user-{mid}").SendAsync("roomschanged");
         }
     }
+
+    // ===== PUSH при новом сообщении =====
+string pushBody;
+if (!string.IsNullOrWhiteSpace(message.Text)) pushBody = message.Text;
+else if (message.ImageUrl != null) pushBody = "📷 Фото";
+else if (message.AudioUrl != null) pushBody = "🎤 Голосовое";
+else pushBody = "🎥 Видео-кружок";
+
+List<int> pushTargets;
+if (room != null && !string.IsNullOrEmpty(room.Members))
+{
+    pushTargets = room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries)
+        .Select(int.Parse).Where(id => id != userId).ToList();
+}
+else pushTargets = new List<int>(); // Общий чат — всем подписанным
+
+PushSender.Fire(pushTargets, userId, user.Name, pushBody);
 }
 
     public async Task DeleteMessage(int messageId, bool deleteForAll)
@@ -326,4 +344,46 @@ public async Task<object> LoadRooms()
 
     return result;
 }
+}
+
+public static class PushSender
+{
+    public static IServiceProvider Provider = null!;
+    public static string VapidPublic = "";
+    public static string VapidPrivate = "";
+
+    public static void Fire(List<int> userIds, int excludeUserId, string title, string body)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = Provider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+                List<PushSubscription> subs;
+                if (userIds.Count > 0)
+                    subs = await db.Set<PushSubscription>().Where(s => userIds.Contains(s.UserId) && s.UserId != excludeUserId).ToListAsync();
+                else
+                    subs = await db.Set<PushSubscription>().Where(s => s.UserId != excludeUserId).ToListAsync();
+
+                var client = new WebPushClient();
+                var payload = System.Text.Json.JsonSerializer.Serialize(new { title, body, tag = "dove-" + title });
+                foreach (var s in subs)
+                {
+                    try
+                    {
+                        var sub = new Subscription
+                        {
+                            endpoint = s.Endpoint,
+                            keys = new Dictionary<string, string> { { "p256dh", s.P256dh }, { "auth", s.Auth } }
+                        };
+                        await client.SendNotificationAsync(sub, payload, new VapidDetails(VapidPublic, VapidPrivate));
+                    }
+                    catch { db.Set<PushSubscription>().Remove(s); }
+                }
+                await db.SaveChangesAsync();
+            }
+            catch { }
+        });
+    }
 }

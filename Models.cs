@@ -156,4 +156,13 @@ public class Story
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class PushSubscription
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public string Endpoint { get; set; } = "";
+    public string P256dh { get; set; } = "";
+    public string Auth { get; set; } = "";
+}
+public record PushSubscribeDto(string Endpoint, string P256dh, string Auth);
 public record CreateStoryDto(string Text, string? ImageUrl, string? BgColor, double? TextX, double? TextY);
