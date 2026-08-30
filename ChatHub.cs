@@ -372,12 +372,14 @@ public static class PushSender
                 {
                     try
                     {
-                        var sub = new Subscription
+                        var sub = new WebPush.PushSubscription
                         {
-                            endpoint = s.Endpoint,
-                            keys = new Dictionary<string, string> { { "p256dh", s.P256dh }, { "auth", s.Auth } }
+                            Endpoint = s.Endpoint,
+                            P256DH = s.P256dh,
+                            Auth = s.Auth
                         };
-                        await client.SendNotificationAsync(sub, payload, new VapidDetails(VapidPublic, VapidPrivate));
+                        var vapidDetails = new VapidDetails("mailto:admin@doveapp.ru", VapidPublic, VapidPrivate);
+                        await client.SendNotificationAsync(sub, payload, vapidDetails);
                     }
                     catch { db.Set<PushSubscription>().Remove(s); }
                 }
