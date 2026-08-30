@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Collections.Concurrent;
 using WebPush;
+using Microsoft.Extensions.DependencyInjection;
 
 public class ChatHub : Hub
 {
@@ -151,22 +152,22 @@ public class ChatHub : Hub
         }
     }
 
-    // ===== PUSH при новом сообщении =====
-string pushBody;
-if (!string.IsNullOrWhiteSpace(message.Text)) pushBody = message.Text;
-else if (message.ImageUrl != null) pushBody = "📷 Фото";
-else if (message.AudioUrl != null) pushBody = "🎤 Голосовое";
-else pushBody = "🎥 Видео-кружок";
+        // ===== PUSH при новом сообщении =====
+    string pushBody;
+    if (!string.IsNullOrWhiteSpace(message.Text)) pushBody = message.Text;
+    else if (message.ImageUrl != null) pushBody = "📷 Фото";
+    else if (message.AudioUrl != null) pushBody = "🎤 Голосовое";
+    else pushBody = "🎥 Видео-кружок";
 
-List<int> pushTargets;
-if (room != null && !string.IsNullOrEmpty(room.Members))
-{
-    pushTargets = room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries)
-        .Select(int.Parse).Where(id => id != userId).ToList();
-}
-else pushTargets = new List<int>(); // Общий чат — всем подписанным
+    List<int> pushTargets;
+    if (room != null && !string.IsNullOrEmpty(room.Members))
+    {
+        pushTargets = room.Members.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(int.Parse).Where(id => id != userId).ToList();
+    }
+    else pushTargets = new List<int>(); // Общий чат — всем подписанным
 
-PushSender.Fire(pushTargets, userId, user.Name, pushBody);
+    PushSender.Fire(pushTargets, userId, user.Name, pushBody);
 }
 
     public async Task DeleteMessage(int messageId, bool deleteForAll)
@@ -372,14 +373,13 @@ public static class PushSender
                 {
                     try
                     {
-                        var sub = new WebPush.PushSubscription
-                        {
-                            Endpoint = s.Endpoint,
-                            P256DH = s.P256dh,
-                            Auth = s.Auth
-                        };
-                        var vapidDetails = new VapidDetails("mailto:admin@doveapp.ru", VapidPublic, VapidPrivate);
-                        await client.SendNotificationAsync(sub, payload, vapidDetails);
+                       var sub = new WebPush.PushSubscription
+                       {
+                           Endpoint = s.Endpoint,
+                           P256DH = s.P256dh,
+                           Auth = s.Auth
+                       };
+                        await client.SendNotificationAsync(sub, payload, new VapidDetails("mailto:admin@doveapp.ru", VapidPublic, VapidPrivate));
                     }
                     catch { db.Set<PushSubscription>().Remove(s); }
                 }

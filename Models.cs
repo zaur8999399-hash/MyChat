@@ -164,9 +164,5 @@ public class PushSubscription
     public string P256dh { get; set; } = "";
     public string Auth { get; set; } = "";
 }
-public record PushSubscribeDto(
-    [property: System.Text.Json.Serialization.JsonPropertyName("endpoint")] string Endpoint,
-    [property: System.Text.Json.Serialization.JsonPropertyName("p256dh")] string P256dh,
-    [property: System.Text.Json.Serialization.JsonPropertyName("auth")] string Auth
-);
+public record PushSubscribeDto(string Endpoint, string P256dh, string Auth);
 public record CreateStoryDto(string Text, string? ImageUrl, string? BgColor, double? TextX, double? TextY);

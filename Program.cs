@@ -1740,10 +1740,10 @@ if (File.Exists(vapidPath))
 }
 else
 {
-   var vk = VapidHelper.GenerateVapidKeys();
-PushSender.VapidPublic = vk.PublicKey;
-PushSender.VapidPrivate = vk.PrivateKey;
-File.WriteAllText(vapidPath, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { { "publicKey", PushSender.VapidPublic }, { "privateKey", PushSender.VapidPrivate } }));
+    var vk = VapidHelper.GenerateVapidKeys();
+    PushSender.VapidPublic = vk.PublicKey;
+    PushSender.VapidPrivate = vk.PrivateKey;
+    File.WriteAllText(vapidPath, System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { { "publicKey", PushSender.VapidPublic }, { "privateKey", PushSender.VapidPrivate } }));
 }
 PushSender.Provider = app.Services;
 
@@ -1753,9 +1753,22 @@ app.MapPost("/api/push/subscribe", async (ClaimsPrincipal principal, AppDb db, P
 {
     var idv = principal.FindFirstValue(ClaimTypes.NameIdentifier);
     if (!int.TryParse(idv, out int userId)) return Results.Unauthorized();
+
+    // СТРАХОВКА: таблица создастся сама, если её нет (лечит 500!)
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"CREATE TABLE IF NOT EXISTS PushSubscriptions (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            UserId INTEGER NOT NULL,
+            Endpoint TEXT NOT NULL,
+            P256dh TEXT NOT NULL,
+            Auth TEXT NOT NULL);");
+    }
+    catch { }
+
     var existing = await db.Set<PushSubscription>().FirstOrDefaultAsync(s => s.Endpoint == dto.Endpoint);
-    if (existing != null) { existing.UserId = userId; existing.P256dh = dto.P256dh; existing.Auth = dto.Auth; }
-    else db.Set<PushSubscription>().Add(new PushSubscription { UserId = userId, Endpoint = dto.Endpoint, P256dh = dto.P256dh, Auth = dto.Auth });
+    if (existing != null) { existing.UserId = userId; existing.P256dh = dto.P256dh ?? ""; existing.Auth = dto.Auth ?? ""; }
+    else db.Set<PushSubscription>().Add(new PushSubscription { UserId = userId, Endpoint = dto.Endpoint ?? "", P256dh = dto.P256dh ?? "", Auth = dto.Auth ?? "" });
     await db.SaveChangesAsync();
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
