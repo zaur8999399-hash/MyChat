@@ -2,9 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 public class AppDb : DbContext
 {
-    public AppDb(DbContextOptions<AppDb> options) : base(options)
-    {
-    }
+    public AppDb(DbContextOptions<AppDb> options) : base(options) { }
 
     // ===== ОСНОВНЫЕ ТАБЛИЦЫ =====
     public DbSet<User> Users => Set<User>();
@@ -28,19 +26,23 @@ public class AppDb : DbContext
 
     // ===== СООБЩЕНИЯ =====
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
-    public DbSet<ChatClear> ChatClears => Set<ChatClear>();   // ← ДОБАВЛЕНО!
 
-public class ChatClear
-{
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public int RoomId { get; set; }
-    public DateTime ClearedAt { get; set; } = DateTime.UtcNow;
-}
+    // ===== 🔔 ПУШ-УВЕДОМЛЕНИЯ (ОБЯЗАТЕЛЬНО!) =====
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<User>()
             .HasIndex(u => u.Login)
             .IsUnique();
     }
+}
+
+// ⬇️ ЭТО ВЫНЕСЕНО НАРУЖУ (отдельный класс)
+public class ChatClear
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int RoomId { get; set; }
+    public DateTime ClearedAt { get; set; } = DateTime.UtcNow;
 }
