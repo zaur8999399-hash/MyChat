@@ -4018,3 +4018,54 @@ window.previewStoryImage = function () {
     window.addEventListener('orientationchange', () => setTimeout(setHeight, 100));
     setHeight();
 })();
+
+// ===== БАННЕР ПУШЕЙ (1 РАЗ НАВСЕГДА) =====
+function showPushBannerOnce() {
+    // 1. Если уже показывали когда-либо — НЕ ПОКАЗЫВАЕМ
+    if (localStorage.getItem('pushBannerShown') === 'true') return;
+    
+    // 2. Если пуши уже включены — НЕ ПОКАЗЫВАЕМ
+    if ('Notification' in window && Notification.permission === 'granted') {
+        localStorage.setItem('pushBannerShown', 'true'); // запоминаем навсегда
+        return;
+    }
+    
+    // 3. Если браузер не поддерживает пуши — НЕ ПОКАЗЫВАЕМ
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    
+    // 4. Показываем через 3 секунды после входа
+    setTimeout(() => {
+        const banner = document.getElementById('pushBanner');
+        if (banner) banner.classList.remove('hidden');
+    }, 3000);
+}
+
+async function acceptPushBanner() {
+    const banner = document.getElementById('pushBanner');
+    if (banner) {
+        banner.style.animation = 'pushBannerSlideUp 0.3s reverse';
+        setTimeout(() => banner.classList.add('hidden'), 280);
+    }
+    
+    // Запоминаем НАВСЕГДА что показали
+    localStorage.setItem('pushBannerShown', 'true');
+    
+    // Включаем пуши
+    await enableNotifications();
+}
+
+function dismissPushBanner() {
+    const banner = document.getElementById('pushBanner');
+    if (banner) {
+        banner.style.animation = 'pushBannerSlideUp 0.3s reverse';
+        setTimeout(() => banner.classList.add('hidden'), 280);
+    }
+    
+    // Запоминаем НАВСЕГДА что показали (больше не покажем)
+    localStorage.setItem('pushBannerShown', 'true');
+}
+
+// Запускаем после авторизации
+window.addEventListener('load', () => {
+    setTimeout(showPushBannerOnce, 2000);
+});

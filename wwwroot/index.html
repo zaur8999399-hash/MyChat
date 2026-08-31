@@ -687,5 +687,18 @@
         <span>Профиль</span>
     </button>
 </nav>
+
+<!-- БАННЕР ПУШЕЙ (показывается 1 раз) -->
+<div id="pushBanner" class="push-banner hidden">
+    <div class="push-banner-icon">🔔</div>
+    <div class="push-banner-text">
+        <div class="push-banner-title">Не пропускай сообщения!</div>
+        <div class="push-banner-sub">Включи уведомления — узнавай о новых сообщениях даже с закрытым приложением</div>
+    </div>
+    <div class="push-banner-actions">
+        <button class="push-banner-btn primary" onclick="acceptPushBanner()">Включить</button>
+        <button class="push-banner-btn ghost" onclick="dismissPushBanner()">Позже</button>
+    </div>
+</div>
 </body>
 </html>
